@@ -1776,16 +1776,33 @@ function taskCardHTML(t, userId) {
   '</article>';
 }
 
+/* Which tasks a student is allowed to see (assigned to them or the whole class). */
+function studentAssignedTaskIds(uid) {
+  var set = {};
+  AssignmentService.forStudent(uid).forEach(function (h) { if (h.taskId) set[h.taskId] = true; });
+  return set;
+}
+
 function renderGallery(kind) {
   var user = AuthService.current();
-  el(kind === "task1" ? "task1Grid" : "task2Grid").innerHTML =
-    TaskService.byKind(kind).map(function (t) { return taskCardHTML(t, user.id); }).join("");
+  var items = TaskService.byKind(kind);
+  var gated = AuthService.role() === "student";
+  if (gated) { var set = studentAssignedTaskIds(user.id); items = items.filter(function (t) { return set[t.id]; }); }
+  var grid = el(kind === "task1" ? "task1Grid" : "task2Grid");
+  grid.innerHTML = items.length
+    ? items.map(function (t) { return taskCardHTML(t, user.id); }).join("")
+    : '<p class="empty-note">' + (gated ? "Nothing assigned here yet — your teacher will unlock tasks for you to practise." : "No tasks available.") + '</p>';
 }
 
 document.addEventListener("click", function (e) {
   var s = e.target.closest("[data-start-task]");
   if (!s) return;
-  openTask(s.dataset.startTask, s.dataset.mode || "practice", s.dataset.hw || null);
+  var taskId = s.dataset.startTask;
+  if (AuthService.role() === "student") {
+    var set = studentAssignedTaskIds(AuthService.current().id);
+    if (!set[taskId]) { alert("This task hasn't been assigned to you yet. Your teacher will unlock it."); return; }
+  }
+  openTask(taskId, s.dataset.mode || "practice", s.dataset.hw || null);
 });
 
 /* ==========================================================================
@@ -2144,12 +2161,12 @@ function renderClinic() {
   // announce presence so the teacher can target this student by name
   if (ClinicService.cloudOn()) CloudService.pingRoster({ room: CloudService.room(), student_key: key, student_name: user.name, seen_at: nowISO() });
   var order = CLINIC.map(function (c, i) { return i; });
-  order.sort(function (a, b) {
-    var aa = ClinicService.assignmentFor(key, a) ? 0 : 1;
-    var bb = ClinicService.assignmentFor(key, b) ? 0 : 1;
-    if (aa !== bb) return aa - bb;
-    return a - b;
-  });
+  order = order.filter(function (i) { return ClinicService.assignmentFor(key, i); });
+  if (!order.length) {
+    el("clinicGrid").innerHTML = '<p class="empty-note">No improvement activities assigned yet — your teacher will unlock these for you.</p>';
+    _clinicSig = clinicSignature(key);
+    return;
+  }
   el("clinicGrid").innerHTML = order.map(function (i) { return clinicCardHTML(CLINIC[i], i, key); }).join("");
   _clinicSig = clinicSignature(key);
 }
@@ -2244,7 +2261,9 @@ function labStatusInfo(st) {
 function labActivityCardHTML(c, i) {
   var n = ClinicService.assignments().filter(function (a) { return a.clinicIndex === i; }).length;
   return '<article class="lab-act-card">' +
-    '<div class="lab-act-head"><span class="clinic-num">' + String(i + 1).padStart(2, "0") + "</span>" +
+    '<div class="lab-act-head">' +
+      '<label class="lab-pick"><input type="checkbox" class="lab-act-cb" value="' + i + '" aria-label="Select ' + esc(c.title) + '"></label>' +
+      '<span class="clinic-num">' + String(i + 1).padStart(2, "0") + "</span>" +
       "<h4>" + esc(c.title) + "</h4>" +
       (n ? '<span class="pill pill-ok">' + n + " assigned</span>" : "") + "</div>" +
     '<p class="lab-act-problem">' + esc(c.problem) + "</p>" +
@@ -2257,6 +2276,11 @@ function labActivityCardHTML(c, i) {
       '<button class="btn btn-gold btn-sm" data-lab-assign="' + i + '">Assign / Unlock</button>' +
     "</div></article>";
 }
+function updateLabPickCount() {
+  var n = $all(".lab-act-cb").filter(function (c) { return c.checked; }).length;
+  if (el("labPickCount")) el("labPickCount").textContent = n + " selected";
+  if (el("labBulkBar")) el("labBulkBar").classList.toggle("is-on", n > 0);
+}
 function renderLabActivities() {
   var q = (el("labSearch") ? el("labSearch").value : "").trim().toLowerCase();
   var html = CLINIC.map(function (c, i) {
@@ -2264,6 +2288,7 @@ function renderLabActivities() {
     return labActivityCardHTML(c, i);
   }).join("");
   el("labActivityGrid").innerHTML = html || '<p class="empty-note">No activities match your search.</p>';
+  updateLabPickCount();
 }
 function renderLabMonitor() {
   var roster = ClinicService.roster();
@@ -2279,6 +2304,7 @@ function renderLabMonitor() {
       var st = ClinicService.stateFor(s.key, i);
       var info = labStatusInfo(st);
       var w = st.work || {};
+      var c = CLINIC[i];
       var preview = (w.attempt && w.attempt.trim())
         ? '<p class="lab-mon-text">' + esc(w.attempt) + "</p>"
         : '<p class="lab-mon-text lab-mon-empty">\u2014 no text yet \u2014</p>';
@@ -2286,9 +2312,23 @@ function renderLabMonitor() {
       if (w.revealed) metaBits.push("saw model");
       if (w.updatedAt) metaBits.push(timeAgo(w.updatedAt));
       var meta = metaBits.length ? '<p class="lab-mon-meta">' + esc(metaBits.join(" \u00b7 ")) + "</p>" : "";
+      // "view as student" — the full activity exactly as the student sees it, plus their live answer
+      var asStudent =
+        '<details class="lab-mon-view"><summary>View as student</summary>' +
+          '<div class="lab-mon-card">' +
+            '<div class="clinic-block"><h4>The problem</h4><p>' + esc(c.problem) + '</p></div>' +
+            '<div class="clinic-block"><h4>Weak example</h4><p class="clinic-weak">' + esc(c.weak) + '</p></div>' +
+            '<div class="clinic-block"><h4>Improved version</h4><p class="clinic-better">' + esc(c.better) + '</p></div>' +
+            '<div class="clinic-block"><h4>Quick tip</h4><p class="clinic-tip">' + esc(c.tip) + '</p></div>' +
+            '<div class="clinic-block clinic-try"><h4>Try fixing this</h4><p>' + esc(c.practice) + '</p>' +
+              '<div class="lab-mon-answer">' + (w.attempt && w.attempt.trim() ? esc(w.attempt) : '\u2014 nothing written yet \u2014') + '</div>' +
+              (w.revealed ? '<p class="lab-mon-meta">Student revealed the model answer.</p>' : '') +
+            '</div>' +
+          '</div>' +
+        '</details>';
       return '<div class="lab-mon-item"><div class="lab-mon-item-head"><span class="lab-mon-act">' +
-        String(i + 1).padStart(2, "0") + " \u00b7 " + esc(CLINIC[i].title) + "</span>" +
-        '<span class="pill ' + info.cls + '">' + info.label + "</span></div>" + preview + meta + "</div>";
+        String(i + 1).padStart(2, "0") + " \u00b7 " + esc(c.title) + "</span>" +
+        '<span class="pill ' + info.cls + '">' + info.label + "</span></div>" + preview + meta + asStudent + "</div>";
     }).join("");
     return '<div class="lab-mon-student"><p class="lab-mon-name">' + esc(s.name) + "</p>" + rows + "</div>";
   }).join("");
@@ -2340,11 +2380,26 @@ function renderImprovementLab() {
     el("labSearch").dataset.bound = "1";
     on(el("labSearch"), "input", renderLabActivities);
   }
+  if (el("labAssignSelected") && !el("labAssignSelected").dataset.bound) {
+    el("labAssignSelected").dataset.bound = "1";
+    on(el("labSelectAll"), "click", function () { $all(".lab-act-cb").forEach(function (c) { c.checked = true; }); updateLabPickCount(); });
+    on(el("labClearSel"), "click", function () { $all(".lab-act-cb").forEach(function (c) { c.checked = false; }); updateLabPickCount(); });
+    on(el("labAssignSelected"), "click", function () {
+      var idxs = $all(".lab-act-cb").filter(function (c) { return c.checked; }).map(function (c) { return Number(c.value); });
+      if (!idxs.length) { alert("Tick at least one activity to assign."); return; }
+      var target = el("labAssignTo").value || "*";
+      var code = (el("labBulkCode").value || "").trim();
+      idxs.forEach(function (i) { ClinicService.assign({ studentKey: target, clinicIndex: i, unlockCode: code, by: AuthService.current().name }); });
+      el("labBulkCode").value = "";
+      renderImprovementLab();
+    });
+  }
   if (el("labRoom") && !el("labRoom").dataset.bound) {
     el("labRoom").dataset.bound = "1";
     on(el("labRoom"), "change", function () { CloudService.setRoom(this.value); renderImprovementLab(); });
   }
 }
+document.addEventListener("change", function (e) { if (e.target.classList && e.target.classList.contains("lab-act-cb")) updateLabPickCount(); });
 /* assign / unlock an activity for the selected target */
 document.addEventListener("click", function (e) {
   var b = e.target.closest("[data-lab-assign]");
@@ -2375,7 +2430,10 @@ function renderLibrary() {
   var user = AuthService.current();
   var q = el("libSearch").value.trim().toLowerCase();
   var fTask = el("libTask").value, fType = el("libType").value, fDiff = el("libDifficulty").value, fStatus = el("libStatus").value, fBand = el("libBand").value;
+  var gated = AuthService.role() === "student";
+  var aset = gated ? studentAssignedTaskIds(user.id) : null;
   var items = TaskService.all().filter(function (t) {
+    if (gated && !aset[t.id]) return false;
     if (fTask && t.kind !== fTask) return false;
     if (fType && t.type !== fType) return false;
     if (fDiff && t.difficulty !== fDiff) return false;
@@ -2386,6 +2444,7 @@ function renderLibrary() {
   });
   el("libGrid").innerHTML = items.map(function (t) { return taskCardHTML(t, user.id); }).join("");
   el("libEmpty").hidden = items.length > 0;
+  if (gated && !items.length) el("libEmpty").textContent = "Nothing assigned yet — your teacher will unlock tasks here.";
 }
 ["libSearch", "libTask", "libType", "libDifficulty", "libStatus", "libBand"].forEach(function (id) {
   on(el(id), "input", function () { if (AuthService.role()) renderLibrary(); });
@@ -2447,11 +2506,30 @@ on(el("addSampleStudent"), "click", function () {
 /* ==========================================================================
    TEACHER — ASSIGNMENTS
    ========================================================================== */
+function renderAsgTaskList() {
+  var q = (el("asgSearch") ? el("asgSearch").value : "").trim().toLowerCase();
+  var tasks = TaskService.all().filter(function (t) {
+    return !q || (t.title + " " + t.type + " " + t.kind).toLowerCase().indexOf(q) > -1;
+  });
+  var groups = [["task1", "Task 1"], ["task2", "Task 2"]];
+  el("asgTaskList").innerHTML = groups.map(function (g) {
+    var items = tasks.filter(function (t) { return t.kind === g[0]; });
+    if (!items.length) return "";
+    return '<div class="check-group"><p class="check-group-h">' + g[1] + '</p>' + items.map(function (t) {
+      return '<label class="check-item"><input type="checkbox" class="asg-task-cb" value="' + t.id + '">' +
+        '<span><strong>' + esc(t.type) + '</strong> — ' + esc(t.title) + ' <em class="check-diff">' + esc(t.difficulty) + '</em></span></label>';
+    }).join("") + '</div>';
+  }).join("") || '<p class="empty-note">No tasks match your search.</p>';
+  updateAsgCount();
+}
+function updateAsgCount() {
+  var n = $all(".asg-task-cb").filter(function (c) { return c.checked; }).length;
+  if (el("asgCount")) el("asgCount").textContent = n + " selected";
+}
 function renderAssignments() {
   var students = AuthService.students();
-  var tasks = TaskService.all();
   el("asgStudent").innerHTML = '<option value="*">All students</option>' + students.map(function (s) { return '<option value="' + s.id + '">' + esc(s.name) + '</option>'; }).join("");
-  el("asgTask").innerHTML = tasks.map(function (t) { return '<option value="' + t.id + '">' + esc((t.kind === "task1" ? "Task 1 · " : "Task 2 · ") + t.type + " — " + t.title) + '</option>'; }).join("");
+  renderAsgTaskList();
 
   var list = AssignmentService.all();
   el("asgList").innerHTML = list.length ? list.map(function (h) {
@@ -2459,20 +2537,30 @@ function renderAssignments() {
     var who = h.studentId === "*" ? "All students" : ((AuthService.byId(h.studentId) || {}).name || "—");
     return '<tr><td>' + esc(who) + '</td><td>' + esc(task ? task.title : "—") + '</td><td>' + modeBadge(h.mode) + '</td><td>' + esc(h.difficulty || "—") + '</td><td>' + (h.deadline ? fmtDate(h.deadline) : "—") + '</td><td>' + (h.unlockCode ? esc(h.unlockCode) : "—") + '</td><td><button class="btn btn-ghost btn-sm" data-del-asg="' + h.id + '">Remove</button></td></tr>';
   }).join("") : '<tr><td colspan="7" class="empty-cell">No assignments yet.</td></tr>';
+
+  if (el("asgSearch") && !el("asgSearch").dataset.bound) {
+    el("asgSearch").dataset.bound = "1";
+    on(el("asgSearch"), "input", renderAsgTaskList);
+    on(el("asgSelectAll"), "click", function () { $all(".asg-task-cb").forEach(function (c) { c.checked = true; }); updateAsgCount(); });
+    on(el("asgClear"), "click", function () { $all(".asg-task-cb").forEach(function (c) { c.checked = false; }); updateAsgCount(); });
+  }
 }
+document.addEventListener("change", function (e) { if (e.target.classList && e.target.classList.contains("asg-task-cb")) updateAsgCount(); });
 on(el("asgCreate"), "click", function () {
-  var data = {
-    studentId: el("asgStudent").value,
-    taskId: el("asgTask").value,
-    mode: el("asgMode").value,
-    difficulty: TaskService.byId(el("asgTask").value).difficulty,
-    deadline: el("asgDeadline").value || "",
-    instructions: el("asgInstr").value.trim(),
-    unlockCode: el("asgCode").value.trim(),
-    by: AuthService.current().name
-  };
-  AssignmentService.create(data);
+  var ids = $all(".asg-task-cb").filter(function (c) { return c.checked; }).map(function (c) { return c.value; });
+  if (!ids.length) { alert("Tick at least one task to assign."); return; }
+  var target = el("asgStudent").value, mode = el("asgMode").value;
+  var deadline = el("asgDeadline").value || "", instructions = el("asgInstr").value.trim(), unlockCode = el("asgCode").value.trim();
+  ids.forEach(function (taskId) {
+    AssignmentService.create({
+      studentId: target, taskId: taskId, mode: mode,
+      difficulty: (TaskService.byId(taskId) || {}).difficulty || "",
+      deadline: deadline, instructions: instructions, unlockCode: unlockCode,
+      by: AuthService.current().name
+    });
+  });
   el("asgInstr").value = ""; el("asgCode").value = ""; el("asgDeadline").value = "";
+  $all(".asg-task-cb").forEach(function (c) { c.checked = false; });
   renderAssignments();
 });
 document.addEventListener("click", function (e) {

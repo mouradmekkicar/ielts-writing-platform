@@ -696,6 +696,35 @@ main { position: relative; z-index: 1; }
 .lab-prog { font-size: 0.78rem; color: var(--mist); }
 .lab-code-pill { font-size: 0.72rem; color: var(--warn-soft); font-weight: 700; }
 
+/* ---------- Multi-select pickers (homework + lab bulk) ---------- */
+.picker-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; }
+.picker-count { font-size: 0.74rem; color: var(--gold-bright); font-weight: 700; letter-spacing: 0.04em; }
+.picker-tools { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
+.picker-search { max-width: 200px; padding: 0.4rem 0.8rem; }
+.check-list { margin-top: 0.5rem; max-height: 320px; overflow: auto; border: 1px solid rgba(201, 169, 97, 0.22); border-radius: var(--radius-sm); padding: 0.6rem 0.8rem; background: rgba(6, 14, 28, 0.35); }
+.check-group + .check-group { margin-top: 0.8rem; }
+.check-group-h { font-family: var(--sans); font-size: 0.66rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--gold); margin: 0 0 0.4rem; }
+.check-item { display: flex; gap: 0.55rem; align-items: flex-start; font-size: 0.86rem; color: var(--mist); padding: 0.28rem 0; cursor: pointer; }
+.check-item input { margin-top: 0.2rem; accent-color: var(--gold); width: 16px; height: 16px; flex: none; }
+.check-item strong { color: var(--ivory); }
+.check-diff { color: var(--gold-dim); font-style: normal; font-size: 0.78rem; }
+
+.lab-bulk { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; padding: 0.6rem 0.75rem; border: 1px dashed rgba(201, 169, 97, 0.3); border-radius: var(--radius-sm); background: rgba(201, 169, 97, 0.05); transition: background 0.2s; }
+.lab-bulk.is-on { background: rgba(201, 169, 97, 0.12); border-style: solid; }
+.lab-bulk .field-input { margin: 0; flex: 1 1 150px; min-width: 0; }
+.lab-pick { flex: none; display: inline-flex; }
+.lab-pick input { width: 17px; height: 17px; accent-color: var(--gold); cursor: pointer; }
+.lab-act-head { gap: 0.45rem; }
+
+/* live monitor — view as student */
+.lab-mon-view { margin-top: 0.45rem; }
+.lab-mon-view > summary { cursor: pointer; color: var(--gold-bright); font-size: 0.74rem; font-weight: 600; }
+.lab-mon-card { margin-top: 0.5rem; background: rgba(250, 246, 239, 0.04); border: 1px solid rgba(201, 169, 97, 0.18); border-radius: var(--radius-sm); padding: 0.7rem 0.8rem; }
+.lab-mon-card .clinic-block { margin-bottom: 0.55rem; }
+.lab-mon-card h4 { font-size: 0.68rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--gold); margin: 0 0 0.25rem; font-family: var(--sans); }
+.lab-mon-card p { font-size: 0.82rem; margin: 0; }
+.lab-mon-answer { margin-top: 0.4rem; background: rgba(6, 14, 28, 0.5); border: 1px solid rgba(95, 158, 110, 0.35); border-radius: var(--radius-sm); padding: 0.55rem 0.7rem; font-family: var(--serif); font-size: 0.86rem; color: var(--ivory); white-space: pre-wrap; word-break: break-word; }
+
 /* ---------- Library ---------- */
 .lib-filters { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-bottom: 1.6rem; justify-content: center; }
 .lib-search, .lib-filters select {

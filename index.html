@@ -195,7 +195,7 @@
       <div class="view-head">
         <p class="view-eyebrow">Teacher / Admin</p>
         <h2 class="view-title">Homework Assignments</h2>
-        <p class="view-sub">Assign a task to one student or the whole class, set the mode and a deadline.</p>
+        <p class="view-sub">Tick one or more tasks and assign them to a student or the whole class. Students only see what you assign.</p>
       </div>
 
       <div class="panel glass-panel pad assign-form">
@@ -203,10 +203,6 @@
           <div class="form-row">
             <label class="field-label" for="asgStudent">Assign to</label>
             <select class="field-input" id="asgStudent"></select>
-          </div>
-          <div class="form-row">
-            <label class="field-label" for="asgTask">Task</label>
-            <select class="field-input" id="asgTask"></select>
           </div>
           <div class="form-row">
             <label class="field-label" for="asgMode">Mode</label>
@@ -225,11 +221,22 @@
           </div>
         </div>
         <div class="form-row">
+          <div class="picker-head">
+            <label class="field-label">Tasks <span class="picker-count" id="asgCount">0 selected</span></label>
+            <div class="picker-tools">
+              <input class="lib-search picker-search" id="asgSearch" type="search" placeholder="Search tasks…" aria-label="Search tasks">
+              <button class="btn btn-ghost btn-sm" id="asgSelectAll" type="button">Select all</button>
+              <button class="btn btn-ghost btn-sm" id="asgClear" type="button">Clear</button>
+            </div>
+          </div>
+          <div class="check-list" id="asgTaskList"></div>
+        </div>
+        <div class="form-row">
           <label class="field-label" for="asgInstr">Instructions (optional)</label>
           <textarea class="field-input" id="asgInstr" rows="2" placeholder="Anything the student should keep in mind…"></textarea>
         </div>
         <div class="report-preview-actions">
-          <button class="btn btn-gold" id="asgCreate">Assign homework</button>
+          <button class="btn btn-gold" id="asgCreate">Assign selected tasks</button>
         </div>
       </div>
 
@@ -264,6 +271,13 @@
             </div>
           </div>
           <p class="lab-hint">Leave the unlock code empty to open an activity immediately. Add a code to keep it locked until you share the code with the student.</p>
+          <div class="lab-bulk" id="labBulkBar">
+            <span class="picker-count" id="labPickCount">0 selected</span>
+            <input type="text" class="field-input" id="labBulkCode" placeholder="Unlock code (optional)" aria-label="Bulk unlock code">
+            <button class="btn btn-ghost btn-sm" id="labSelectAll" type="button">Select all</button>
+            <button class="btn btn-ghost btn-sm" id="labClearSel" type="button">Clear</button>
+            <button class="btn btn-gold btn-sm" id="labAssignSelected" type="button">Assign selected</button>
+          </div>
           <div class="lab-activity-grid" id="labActivityGrid"></div>
         </div>
 
