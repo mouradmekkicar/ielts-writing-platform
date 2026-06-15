@@ -1481,8 +1481,8 @@ function fmtTime(sec) { var m = Math.floor(sec / 60), s = sec % 60; return m + "
    ========================================================================== */
 
 var NAV = {
-  student: [["dashboard", "Dashboard"], ["task1", "Task 1"], ["task2", "Task 2"], ["clinic", "Writing Clinic"], ["library", "Library"], ["reports", "Reports"]],
-  teacher: [["dashboard", "Dashboard"], ["students", "Students"], ["assignments", "Assignments"], ["improvement", "Improvement Lab"], ["submissions", "Submissions"], ["library", "Library"], ["reports", "Reports"]]
+  student: [["dashboard", "Dashboard"], ["intro", "Introduction"], ["task1", "Task 1"], ["task2", "Task 2"], ["clinic", "Writing Clinic"], ["library", "Library"], ["reports", "Reports"]],
+  teacher: [["dashboard", "Dashboard"], ["intro", "Introduction"], ["students", "Students"], ["assignments", "Assignments"], ["improvement", "Improvement Lab"], ["submissions", "Submissions"], ["library", "Library"], ["reports", "Reports"]]
 };
 
 function renderNav() {
@@ -1542,6 +1542,15 @@ on(el("navToggle"), "click", function () {
 });
 on(el("brandHome"), "click", function () { if (AuthService.role()) showView("dashboard"); });
 on(el("signOutBtn"), "click", function () { AuthService.signOut(); boot(); });
+
+/* Introduction · printable A4 student handout (same pattern as report/cert) */
+function printIntroHandout() {
+  document.body.classList.add("printing-intro");
+  el("introPrint").setAttribute("aria-hidden", "false");
+  window.print();
+  setTimeout(function () { document.body.classList.remove("printing-intro"); el("introPrint").setAttribute("aria-hidden", "true"); }, 300);
+}
+on(el("introPrintBtn"), "click", printIntroHandout);
 
 /* generic accordion */
 document.addEventListener("click", function (e) {

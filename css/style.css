@@ -803,6 +803,215 @@ main { position: relative; z-index: 1; }
 }
 
 /* ==========================================================================
+   INTRODUCTION TAB  ·  premium IELTS coaching guide (students + teachers)
+   Reuses platform tokens: navy glass cards, gold accents, serif headings.
+   ========================================================================== */
+.intro-head-actions { display: flex; gap: 0.6rem; justify-content: center; flex-wrap: wrap; margin-top: 1rem; }
+.intro-wrap { max-width: 960px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.3rem; }
+
+.intro-card {
+  background: var(--glass);
+  border: 1px solid rgba(201, 169, 97, 0.34);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(6px);
+  padding: 1.5rem 1.6rem;
+  transition: transform 0.25s ease, border-color 0.25s ease;
+}
+.intro-card:hover { border-color: rgba(201, 169, 97, 0.55); }
+.intro-card > p { color: var(--mist); margin: 0 0 0.8rem; font-size: 0.95rem; }
+.intro-card > p:last-child { margin-bottom: 0; }
+.intro-card strong { color: var(--gold-bright); font-weight: 600; }
+
+.intro-kicker {
+  font-size: 0.7rem; letter-spacing: 0.24em; text-transform: uppercase;
+  color: var(--gold-dim); margin: 0 0 0.4rem; font-weight: 700;
+}
+.intro-kicker-gold { color: var(--gold-bright); }
+.intro-kicker-warn { color: var(--warn-soft); }
+.intro-h { font-family: var(--serif); font-size: 1.42rem; color: var(--ivory); margin: 0 0 0.85rem; }
+.intro-subhead {
+  font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--gold-dim); font-weight: 700; margin: 1.2rem 0 0.55rem;
+}
+
+/* Section dividers */
+.intro-divider { display: flex; align-items: center; gap: 1rem; margin: 0.4rem 0 -0.2rem; }
+.intro-divider::before, .intro-divider::after {
+  content: ""; flex: 1; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(201, 169, 97, 0.45), transparent);
+}
+.intro-divider span {
+  font-family: var(--serif); font-size: 0.95rem; color: var(--gold-bright);
+  letter-spacing: 0.04em; white-space: nowrap;
+}
+
+/* 1 · Welcome */
+.intro-welcome { display: flex; gap: 1.4rem; align-items: center; }
+.intro-welcome-coin { width: 92px; height: 92px; flex: none; filter: drop-shadow(0 6px 18px rgba(201, 169, 97, 0.3)); }
+.intro-welcome-body { min-width: 0; }
+
+/* Highlight / fact boxes */
+.intro-fact {
+  background: rgba(201, 169, 97, 0.1);
+  border-left: 3px solid var(--gold);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 1rem; margin: 0 0 1.1rem;
+  color: var(--ivory); font-size: 0.95rem;
+}
+.intro-note {
+  font-style: italic; color: var(--mist); font-size: 0.88rem;
+  margin: 1rem 0 0; padding-left: 0.85rem; border-left: 2px solid rgba(201, 169, 97, 0.4);
+}
+
+/* 2 · Task 1 vs Task 2 comparison */
+.intro-compare { display: flex; align-items: stretch; gap: 0.8rem; margin: 0.4rem 0 0; }
+.intro-compare-card {
+  flex: 1; background: linear-gradient(170deg, rgba(20, 52, 86, 0.7), rgba(9, 26, 46, 0.85));
+  border: 1px solid rgba(201, 169, 97, 0.28); border-radius: var(--radius-sm); padding: 1.1rem 1.15rem;
+}
+.intro-compare-card-gold { border-color: rgba(201, 169, 97, 0.55); box-shadow: inset 0 0 0 1px rgba(201, 169, 97, 0.12); }
+.intro-compare-vs {
+  align-self: center; font-family: var(--serif); font-style: italic;
+  color: var(--gold-dim); font-size: 1.1rem; flex: none;
+}
+.intro-compare-h { font-family: var(--serif); color: var(--ivory); font-size: 1.12rem; margin: 0.5rem 0 0.5rem; }
+.intro-compare-card p { color: var(--mist); font-size: 0.88rem; margin: 0 0 0.7rem; }
+.intro-mini { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+.intro-mini li { font-size: 0.83rem; color: var(--mist); padding-left: 1rem; position: relative; }
+.intro-mini li::before { content: "›"; position: absolute; left: 0; color: var(--gold); font-weight: 700; }
+
+/* Pills */
+.intro-pill {
+  display: inline-block; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  border: 1px solid rgba(201, 169, 97, 0.5); color: var(--gold-bright);
+  border-radius: 999px; padding: 0.16rem 0.7rem;
+}
+.intro-pill-gold { background: linear-gradient(135deg, var(--gold-bright), var(--gold)); color: var(--navy-deep); border-color: transparent; }
+
+/* 3 + 4 · Chart / essay tiles */
+.intro-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.7rem; margin: 0.3rem 0 0; }
+.intro-tile {
+  background: rgba(10, 37, 64, 0.5); border: 1px solid rgba(201, 169, 97, 0.22);
+  border-radius: var(--radius-sm); padding: 0.85rem 0.9rem; text-align: center;
+  display: flex; flex-direction: column; gap: 0.25rem; transition: border-color 0.2s ease, transform 0.2s ease;
+}
+.intro-tile:hover { border-color: var(--gold); transform: translateY(-3px); }
+.intro-tile b { color: var(--ivory); font-size: 0.92rem; font-family: var(--serif); }
+.intro-tile small { color: var(--mist); font-size: 0.74rem; }
+.intro-emoji { font-size: 1.5rem; line-height: 1; }
+
+/* Lists */
+.intro-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.45rem; }
+.intro-list li { position: relative; padding-left: 1.4rem; color: var(--mist); font-size: 0.92rem; }
+.intro-list li::before { content: "◆"; position: absolute; left: 0; top: 0.05rem; color: var(--gold); font-size: 0.7rem; }
+.intro-list b { color: var(--ivory); }
+
+/* 5 · Time management */
+.intro-time-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.intro-time-card {
+  background: linear-gradient(170deg, rgba(20, 52, 86, 0.7), rgba(9, 26, 46, 0.85));
+  border: 1px solid rgba(201, 169, 97, 0.28); border-radius: var(--radius-sm); padding: 1.1rem 1.2rem;
+}
+.intro-time-card-gold { border-color: rgba(201, 169, 97, 0.55); }
+.intro-time-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.9rem; }
+.intro-time-total { font-family: var(--serif); font-size: 1.3rem; color: var(--gold-bright); }
+.intro-time-row { display: grid; grid-template-columns: 54px 1fr 64px; align-items: center; gap: 0.6rem; margin-bottom: 0.55rem; }
+.intro-time-row:last-child { margin-bottom: 0; }
+.intro-time-label { font-size: 0.8rem; color: var(--mist); }
+.intro-bar { display: block; height: 8px; border-radius: 999px; background: rgba(201, 169, 97, 0.16); overflow: hidden; }
+.intro-bar i {
+  display: block; height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, var(--gold), var(--gold-bright));
+  animation: introBar 0.9s ease both;
+}
+@keyframes introBar { from { transform: scaleX(0); transform-origin: left; } to { transform: scaleX(1); } }
+.intro-time-val { font-size: 0.78rem; color: var(--gold-bright); text-align: right; font-variant-numeric: tabular-nums; }
+
+/* 6 · Scoring grid */
+.intro-score-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem; margin-top: 0.3rem; }
+.intro-score-card {
+  position: relative; background: rgba(10, 37, 64, 0.5);
+  border: 1px solid rgba(201, 169, 97, 0.24); border-radius: var(--radius-sm); padding: 1.1rem 1.15rem 1.1rem;
+  overflow: hidden;
+}
+.intro-score-no {
+  position: absolute; top: 0.5rem; right: 0.8rem; font-family: var(--serif);
+  font-size: 2.3rem; color: rgba(201, 169, 97, 0.16); line-height: 1; font-weight: 700;
+}
+.intro-score-card h4 { font-family: var(--serif); color: var(--ivory); font-size: 1.02rem; margin: 0 0 0.5rem; padding-right: 2rem; }
+.intro-score-card p { color: var(--mist); font-size: 0.86rem; margin: 0 0 0.5rem; }
+.intro-focus { color: var(--gold-bright) !important; font-size: 0.82rem !important; font-style: italic; margin: 0 !important; }
+
+/* 7 + 8/9 · Two-column blocks (dos/don'ts, tips) */
+.intro-dd { display: grid; grid-template-columns: 1fr 1fr; gap: 1.3rem; align-items: start; }
+.intro-do { border-color: rgba(95, 158, 110, 0.4); }
+.intro-dont { border-color: rgba(196, 110, 110, 0.4); }
+.intro-dd-h { font-family: var(--serif); font-size: 1.2rem; color: var(--ivory); margin: 0 0 0.9rem; display: flex; align-items: center; gap: 0.55rem; }
+.intro-dd-mark {
+  display: inline-flex; align-items: center; justify-content: center; width: 1.7rem; height: 1.7rem;
+  border-radius: 50%; font-size: 0.9rem; background: rgba(95, 158, 110, 0.18); color: var(--ok-soft); border: 1px solid var(--ok);
+}
+.intro-dd-mark-no { background: rgba(196, 110, 110, 0.18); color: var(--bad); border-color: var(--bad); }
+.intro-list-do li::before { content: "✔"; color: var(--ok-soft); font-size: 0.82rem; }
+.intro-list-dont li::before { content: "✕"; color: var(--bad); font-size: 0.82rem; }
+
+/* 10 · Common mistakes */
+.intro-warn-card { border-color: rgba(176, 140, 63, 0.45); }
+.intro-warn-grid { display: flex; flex-wrap: wrap; gap: 0.55rem; margin-top: 0.3rem; }
+.intro-warn-item {
+  font-size: 0.84rem; color: var(--warn-soft);
+  background: rgba(176, 140, 63, 0.12); border: 1px solid rgba(176, 140, 63, 0.4);
+  border-radius: 999px; padding: 0.32rem 0.85rem;
+}
+.intro-warn-item::before { content: "⚠ "; opacity: 0.8; }
+
+/* 11 · Checklist */
+.intro-check { list-style: none; margin: 0.2rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.55rem; }
+.intro-check li { position: relative; padding-left: 2rem; color: var(--ivory); font-size: 0.93rem; }
+.intro-check li::before {
+  content: "✓"; position: absolute; left: 0; top: -0.1rem;
+  width: 1.4rem; height: 1.4rem; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--gold); border-radius: 5px; color: var(--gold-bright);
+  font-size: 0.78rem; background: rgba(201, 169, 97, 0.08);
+}
+
+/* 12 · Steps */
+.intro-steps { margin: 0.2rem 0 0; padding: 0; list-style: none; counter-reset: introstep; display: flex; flex-direction: column; gap: 0.7rem; }
+.intro-steps li { position: relative; padding-left: 2.6rem; color: var(--mist); font-size: 0.93rem; min-height: 1.9rem; display: flex; align-items: center; }
+.intro-steps li::before {
+  counter-increment: introstep; content: counter(introstep);
+  position: absolute; left: 0; top: 0; width: 1.9rem; height: 1.9rem;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%; background: linear-gradient(135deg, var(--gold-bright), var(--gold));
+  color: var(--navy-deep); font-family: var(--serif); font-weight: 700; font-size: 0.92rem;
+}
+.intro-steps b { color: var(--ivory); }
+
+/* 13 · Final motivation */
+.intro-final { position: relative; overflow: hidden; text-align: center; border-color: rgba(201, 169, 97, 0.5); padding: 2rem 1.8rem; }
+.intro-final-glow {
+  position: absolute; inset: -40% 30% auto; height: 220px;
+  background: radial-gradient(circle, rgba(201, 169, 97, 0.22), transparent 65%);
+  pointer-events: none;
+}
+.intro-final-h { font-family: var(--serif); font-size: 1.7rem; color: var(--gold-bright); margin: 0 0 0.9rem; }
+.intro-final p { max-width: 620px; margin: 0 auto 0.8rem; color: var(--ivory); }
+.intro-final-actions { display: flex; gap: 0.7rem; justify-content: center; flex-wrap: wrap; margin-top: 1.2rem; }
+
+/* Responsive */
+@media (max-width: 720px) {
+  .intro-welcome { flex-direction: column; text-align: center; }
+  .intro-compare { flex-direction: column; }
+  .intro-compare-vs { transform: rotate(90deg); }
+  .intro-time-grid,
+  .intro-score-grid,
+  .intro-dd { grid-template-columns: 1fr; }
+  .intro-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+  .intro-card { padding: 1.25rem 1.2rem; }
+}
+
+/* ==========================================================================
    PRINT — A4 report + certificate (hidden on screen)
    ========================================================================== */
 .print-sheet { display: none; }
@@ -825,6 +1034,8 @@ main { position: relative; z-index: 1; }
   body.printing-report #printReport * { visibility: visible; }
   body.printing-cert #certificate,
   body.printing-cert #certificate * { visibility: visible; }
+  body.printing-intro #introPrint,
+  body.printing-intro #introPrint * { visibility: visible; }
 
   .print-sheet { display: block; position: absolute; inset: 0; }
 
@@ -862,6 +1073,9 @@ main { position: relative; z-index: 1; }
   .pr-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; }
   .pr-list { margin: 4px 0 8px; padding-left: 16px; font-size: 10pt; }
   .pr-list li { margin-bottom: 3px; }
+  .pr-check { list-style: none; padding-left: 0; }
+  .pr-check li { padding-left: 20px; position: relative; }
+  .pr-check li::before { content: ""; position: absolute; left: 0; top: 2px; width: 11px; height: 11px; border: 1px solid #8d7440; border-radius: 2px; }
   .pr-comments { font-size: 10pt; margin: 4px 0 8px; white-space: pre-wrap; }
   .pr-next { font-size: 10.5pt; margin: 4px 0 8px; padding: 8px 12px; background: #faf6ef; border-left: 3px solid #c9a961; }
 

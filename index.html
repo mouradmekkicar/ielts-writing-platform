@@ -58,6 +58,290 @@
     <!-- DASHBOARD (role-aware, rendered by JS) -->
     <section class="view" data-view="dashboard" id="view-dashboard"></section>
 
+    <!-- ===================== INTRODUCTION (students + teachers) ===================== -->
+    <section class="view" data-view="intro" id="view-intro">
+      <div class="view-head">
+        <p class="view-eyebrow">Your IELTS Academic Writing guide</p>
+        <h2 class="view-title">Introduction</h2>
+        <p class="view-sub">Understand the exam — structure, timing, scoring, strategy, and the habits that move bands — all in one place, before you write a single word.</p>
+        <div class="intro-head-actions">
+          <button class="btn btn-gold btn-sm" data-nav="task1">Start with Task 1</button>
+          <button class="btn btn-ghost btn-sm" id="introPrintBtn" type="button">Print handout</button>
+        </div>
+      </div>
+
+      <div class="intro-wrap">
+
+        <!-- 1 · Welcome -->
+        <article class="intro-card intro-welcome">
+          <img class="intro-welcome-coin" src="assets/logo/coin-logo.png" alt="">
+          <div class="intro-welcome-body">
+            <p class="intro-kicker">Welcome</p>
+            <h3 class="intro-h">Welcome to IELTS Academic Writing</h3>
+            <p>This platform takes you from where you are now to a confident, exam-ready writer. You will practise both <strong>Task 1</strong> and <strong>Task 2</strong>, receive clear diagnostic feedback, and improve one focused step at a time.</p>
+            <p>Progress in IELTS Writing comes from <strong>practice, honest feedback, and steady improvement</strong> — not from luck or memorised essays. Use this guide as your map, then open a task and begin.</p>
+          </div>
+        </article>
+
+        <!-- 2 · Exam overview -->
+        <div class="intro-divider"><span>The exam at a glance</span></div>
+        <article class="intro-card">
+          <p class="intro-kicker">IELTS Writing exam overview</p>
+          <h3 class="intro-h">60 minutes · two tasks · one focused mind</h3>
+          <div class="intro-fact">You have <strong>60 minutes total</strong> for both tasks. There is no extra time, so managing the clock is part of the skill being tested.</div>
+          <div class="intro-compare">
+            <div class="intro-compare-card">
+              <span class="intro-pill">Task 1</span>
+              <h4 class="intro-compare-h">Academic report</h4>
+              <p>Describe visual information — a graph, chart, table, map, or process — in your own words. At least <strong>150 words</strong>.</p>
+              <ul class="intro-mini">
+                <li>Spend about <strong>20 minutes</strong></li>
+                <li>Report the data; do not give opinions</li>
+                <li>Worth <strong>one third</strong> of your writing score</li>
+              </ul>
+            </div>
+            <div class="intro-compare-vs" aria-hidden="true">vs</div>
+            <div class="intro-compare-card intro-compare-card-gold">
+              <span class="intro-pill intro-pill-gold">Task 2</span>
+              <h4 class="intro-compare-h">Essay</h4>
+              <p>Respond to a question or statement with a clear, well-argued essay. At least <strong>250 words</strong>.</p>
+              <ul class="intro-mini">
+                <li>Spend about <strong>40 minutes</strong></li>
+                <li>Take a position and develop it</li>
+                <li>Worth <strong>two thirds</strong> of your writing score</li>
+              </ul>
+            </div>
+          </div>
+          <p class="intro-note">Because Task 2 carries more weight, never let Task 1 eat into your Task 2 time.</p>
+        </article>
+
+        <!-- 3 · Task 1 explained -->
+        <div class="intro-divider"><span>Task 1 explained</span></div>
+        <article class="intro-card">
+          <p class="intro-kicker">Writing Task 1</p>
+          <h3 class="intro-h">Describing data and processes</h3>
+          <p>Task 1 gives you one or more visuals. Your job is to <strong>select the key information</strong> and report it accurately and objectively. You may be asked to describe:</p>
+          <div class="intro-grid">
+            <div class="intro-tile"><span class="intro-emoji">📈</span><b>Line graphs</b><small>Trends and changes over time</small></div>
+            <div class="intro-tile"><span class="intro-emoji">📊</span><b>Bar charts</b><small>Comparisons between groups</small></div>
+            <div class="intro-tile"><span class="intro-emoji">🥧</span><b>Pie charts</b><small>Proportions of a whole</small></div>
+            <div class="intro-tile"><span class="intro-emoji">▦</span><b>Tables</b><small>Exact figures across categories</small></div>
+            <div class="intro-tile"><span class="intro-emoji">🗺️</span><b>Maps</b><small>Changes to a place over time</small></div>
+            <div class="intro-tile"><span class="intro-emoji">⚙️</span><b>Process diagrams</b><small>Stages of how something works</small></div>
+            <div class="intro-tile"><span class="intro-emoji">🧩</span><b>Mixed charts</b><small>Two visuals to combine</small></div>
+          </div>
+          <p class="intro-subhead">What you must do</p>
+          <ul class="intro-list">
+            <li><b>Summarise the main features</b> — the biggest, smallest, fastest, most striking points.</li>
+            <li><b>Make comparisons</b> rather than listing every number separately.</li>
+            <li><b>Select key information</b> — you cannot describe everything, so choose what matters.</li>
+            <li><b>Write a clear overview</b> — one or two sentences capturing the big picture.</li>
+            <li><b>Avoid personal opinions</b> — report only what the data shows.</li>
+            <li><b>Use accurate data language</b> — rose, fell, peaked, plateaued, roughly, a quarter of.</li>
+          </ul>
+        </article>
+
+        <!-- 4 · Task 2 explained -->
+        <div class="intro-divider"><span>Task 2 explained</span></div>
+        <article class="intro-card">
+          <p class="intro-kicker">Writing Task 2</p>
+          <h3 class="intro-h">Building a clear argument</h3>
+          <p>Task 2 asks for an essay responding to a question. First, identify the <strong>essay type</strong> — it tells you how to structure your answer:</p>
+          <div class="intro-grid">
+            <div class="intro-tile"><span class="intro-emoji">💬</span><b>Opinion</b><small>Agree or disagree, and why</small></div>
+            <div class="intro-tile"><span class="intro-emoji">⚖️</span><b>Discussion</b><small>Both views, then your view</small></div>
+            <div class="intro-tile"><span class="intro-emoji">➕➖</span><b>Advantages &amp; disadvantages</b><small>Weigh the two sides</small></div>
+            <div class="intro-tile"><span class="intro-emoji">🛠️</span><b>Problem &amp; solution</b><small>Causes and practical fixes</small></div>
+            <div class="intro-tile"><span class="intro-emoji">❓</span><b>Two-part question</b><small>Answer both parts fully</small></div>
+          </div>
+          <p class="intro-subhead">What you must do</p>
+          <ul class="intro-list">
+            <li><b>Answer the question directly</b> — address exactly what is asked, not a similar topic.</li>
+            <li><b>Develop clear ideas</b> — one main idea per paragraph, fully explained.</li>
+            <li><b>Use examples</b> to support and illustrate your points.</li>
+            <li><b>Organise paragraphs logically</b> with a clear introduction, body, and conclusion.</li>
+            <li><b>Maintain a formal academic tone</b> throughout.</li>
+          </ul>
+        </article>
+
+        <!-- 5 · Time management -->
+        <div class="intro-divider"><span>Time management</span></div>
+        <article class="intro-card">
+          <p class="intro-kicker">Recommended timing</p>
+          <h3 class="intro-h">Spend your 60 minutes wisely</h3>
+          <div class="intro-time-grid">
+            <div class="intro-time-card">
+              <div class="intro-time-top"><span class="intro-pill">Task 1</span><span class="intro-time-total">20 min</span></div>
+              <div class="intro-time-row"><span class="intro-time-label">Plan</span><span class="intro-bar"><i style="width:20%"></i></span><span class="intro-time-val">3–5 min</span></div>
+              <div class="intro-time-row"><span class="intro-time-label">Write</span><span class="intro-bar"><i style="width:70%"></i></span><span class="intro-time-val">12–15 min</span></div>
+              <div class="intro-time-row"><span class="intro-time-label">Check</span><span class="intro-bar"><i style="width:10%"></i></span><span class="intro-time-val">2 min</span></div>
+            </div>
+            <div class="intro-time-card intro-time-card-gold">
+              <div class="intro-time-top"><span class="intro-pill intro-pill-gold">Task 2</span><span class="intro-time-total">40 min</span></div>
+              <div class="intro-time-row"><span class="intro-time-label">Plan</span><span class="intro-bar"><i style="width:13%"></i></span><span class="intro-time-val">5 min</span></div>
+              <div class="intro-time-row"><span class="intro-time-label">Write</span><span class="intro-bar"><i style="width:75%"></i></span><span class="intro-time-val">30 min</span></div>
+              <div class="intro-time-row"><span class="intro-time-label">Check</span><span class="intro-bar"><i style="width:12%"></i></span><span class="intro-time-val">5 min</span></div>
+            </div>
+          </div>
+          <p class="intro-note">Planning feels slow but saves time — a clear plan makes the writing faster and the marking kinder.</p>
+        </article>
+
+        <!-- 6 · Scoring -->
+        <div class="intro-divider"><span>How writing is scored</span></div>
+        <article class="intro-card">
+          <p class="intro-kicker">The four band descriptors</p>
+          <h3 class="intro-h">What examiners actually reward</h3>
+          <p>Each task is marked on <strong>four equally weighted criteria</strong>. Knowing them turns marking from a mystery into a checklist.</p>
+          <div class="intro-score-grid">
+            <div class="intro-score-card">
+              <span class="intro-score-no">01</span>
+              <h4>Task Achievement / Task Response</h4>
+              <p>Did you fully answer the question? Task 1 needs an accurate overview and key features; Task 2 needs a clear position developed throughout.</p>
+              <p class="intro-focus">Focus on: answering completely and staying on topic.</p>
+            </div>
+            <div class="intro-score-card">
+              <span class="intro-score-no">02</span>
+              <h4>Coherence &amp; Cohesion</h4>
+              <p>Is your writing easy to follow? Logical paragraphs, clear progression, and natural linking words that connect ideas without overuse.</p>
+              <p class="intro-focus">Focus on: paragraphing and smooth, logical flow.</p>
+            </div>
+            <div class="intro-score-card">
+              <span class="intro-score-no">03</span>
+              <h4>Lexical Resource</h4>
+              <p>Is your vocabulary varied, precise, and used correctly? Range matters, but accuracy and the right word matter more than rare words.</p>
+              <p class="intro-focus">Focus on: precise word choice and correct collocations.</p>
+            </div>
+            <div class="intro-score-card">
+              <span class="intro-score-no">04</span>
+              <h4>Grammatical Range &amp; Accuracy</h4>
+              <p>Can you use a mix of sentence structures with few errors? A variety of accurate sentences scores higher than long, error-filled ones.</p>
+              <p class="intro-focus">Focus on: control first, then variety.</p>
+            </div>
+          </div>
+        </article>
+
+        <!-- 7 · Dos and Don'ts -->
+        <div class="intro-divider"><span>Dos &amp; Don'ts</span></div>
+        <div class="intro-dd">
+          <article class="intro-card intro-do">
+            <h3 class="intro-dd-h"><span class="intro-dd-mark">✔</span> Do</h3>
+            <ul class="intro-list intro-list-do">
+              <li>Plan before you write.</li>
+              <li>Answer the exact question asked.</li>
+              <li>Write a clear overview in Task 1.</li>
+              <li>Organise your answer into paragraphs.</li>
+              <li>Support your ideas with examples.</li>
+              <li>Check grammar, spelling, and punctuation.</li>
+              <li>Use formal academic English.</li>
+            </ul>
+          </article>
+          <article class="intro-card intro-dont">
+            <h3 class="intro-dd-h"><span class="intro-dd-mark intro-dd-mark-no">✕</span> Don't</h3>
+            <ul class="intro-list intro-list-dont">
+              <li>Memorise whole essays in advance.</li>
+              <li>Copy the question without paraphrasing.</li>
+              <li>Give opinions in Task 1.</li>
+              <li>Ignore or forget the overview.</li>
+              <li>Drift off-topic.</li>
+              <li>Force in complex words you can't use accurately.</li>
+              <li>Use informal language or spend too long on Task 1.</li>
+            </ul>
+          </article>
+        </div>
+
+        <!-- 8 + 9 · Success tips -->
+        <div class="intro-divider"><span>Success tips</span></div>
+        <div class="intro-dd">
+          <article class="intro-card">
+            <p class="intro-kicker">Task 1</p>
+            <h3 class="intro-h">Task 1 success tips</h3>
+            <ul class="intro-list">
+              <li>Open with a <b>paraphrased</b> version of the prompt — don't copy it.</li>
+              <li><b>Always include an overview</b> of the main trends or stages.</li>
+              <li>Group information logically instead of describing at random.</li>
+              <li><b>Compare</b> figures rather than listing every single number.</li>
+              <li>Use accurate trend vocabulary (rose sharply, levelled off, gradual decline).</li>
+              <li>Don't explain <i>reasons</i> unless the data actually shows them.</li>
+            </ul>
+          </article>
+          <article class="intro-card">
+            <p class="intro-kicker">Task 2</p>
+            <h3 class="intro-h">Task 2 success tips</h3>
+            <ul class="intro-list">
+              <li>Analyse the question carefully before you start.</li>
+              <li>Decide your position <b>first</b>, then build toward it.</li>
+              <li>Write clear <b>topic sentences</b> to open each paragraph.</li>
+              <li>Develop <b>one main idea per paragraph</b>.</li>
+              <li>Use examples naturally, not as decoration.</li>
+              <li>Keep the conclusion short, clear, and on-message.</li>
+            </ul>
+          </article>
+        </div>
+
+        <!-- 10 · Common mistakes -->
+        <div class="intro-divider"><span>Avoid these</span></div>
+        <article class="intro-card intro-warn-card">
+          <p class="intro-kicker intro-kicker-warn">Common student mistakes</p>
+          <h3 class="intro-h">The band-losers to watch for</h3>
+          <div class="intro-warn-grid">
+            <span class="intro-warn-item">No overview in Task 1</span>
+            <span class="intro-warn-item">Weak or missing paragraphing</span>
+            <span class="intro-warn-item">Repeating the same vocabulary</span>
+            <span class="intro-warn-item">Memorised, off-the-shelf sentences</span>
+            <span class="intro-warn-item">Misreading the question</span>
+            <span class="intro-warn-item">Frequent grammar errors</span>
+            <span class="intro-warn-item">Poor time management</span>
+            <span class="intro-warn-item">Writing too few words</span>
+            <span class="intro-warn-item">Including irrelevant ideas</span>
+          </div>
+        </article>
+
+        <!-- 11 · Checklist -->
+        <div class="intro-divider"><span>Before you submit</span></div>
+        <article class="intro-card">
+          <p class="intro-kicker">Final check</p>
+          <h3 class="intro-h">Writing checklist before submission</h3>
+          <ul class="intro-check">
+            <li>Did I answer the question?</li>
+            <li>Did I write enough words (150+ / 250+)?</li>
+            <li>Did I organise my answer into paragraphs?</li>
+            <li>Did I include an overview for Task 1?</li>
+            <li>Did I support my Task 2 ideas with reasons or examples?</li>
+            <li>Did I check spelling, grammar, and punctuation?</li>
+            <li>Did I avoid informal language?</li>
+          </ul>
+        </article>
+
+        <!-- 12 · How to use the platform -->
+        <div class="intro-divider"><span>Using this platform</span></div>
+        <article class="intro-card">
+          <p class="intro-kicker">How it works</p>
+          <h3 class="intro-h">How to use this platform</h3>
+          <ol class="intro-steps">
+            <li><b>Practise Task 1 and Task 2</b> from the studios — freely, or under timed exam conditions.</li>
+            <li><b>Submit your writing</b> for review and receive a clear diagnostic on each criterion.</li>
+            <li><b>Read your feedback carefully</b>, note one or two priorities, and try again.</li>
+            <li>Teachers can <b>assign tasks</b> and unlock practice, so you always know what to work on next.</li>
+            <li><b>Improvement compounds</b> — repeated practice, reflection, and revision are what raise your band.</li>
+          </ol>
+        </article>
+
+        <!-- 13 · Final motivation -->
+        <article class="intro-card intro-final">
+          <span class="intro-final-glow" aria-hidden="true"></span>
+          <p class="intro-kicker intro-kicker-gold">Before you begin</p>
+          <h3 class="intro-final-h">Write better, not just more</h3>
+          <p>IELTS Writing improves through <strong>strategy, practice, and feedback</strong>. The goal is never simply to write more words — it is to write <strong>clearer, sharper, more accurate</strong> ones.</p>
+          <p>Start with a single task. Review the feedback. Improve one thing. Then do it again. That loop, repeated patiently, is how confident writers are made.</p>
+          <div class="intro-final-actions">
+            <button class="btn btn-gold" data-nav="task1">Begin Task 1</button>
+            <button class="btn btn-ghost" data-nav="task2">Explore Task 2</button>
+          </div>
+        </article>
+
+      </div>
+    </section>
+
     <!-- TASK 1 GALLERY -->
     <section class="view" data-view="task1" id="view-task1">
       <div class="view-head">
@@ -434,6 +718,86 @@
       </div>
       <p class="cert-foot">IELTSwithMOURAD — Academic Writing Platform</p>
     </div>
+  </div>
+
+
+  <!-- ===================== PRINT · INTRODUCTION HANDOUT ===================== -->
+  <div class="print-sheet" id="introPrint" aria-hidden="true">
+    <div class="pr-head">
+      <img class="pr-coin" src="assets/logo/coin-logo.png" alt="">
+      <div>
+        <h1 class="pr-brand">IELTS<em>with</em>MOURAD</h1>
+        <p class="pr-brand-sub">Academic Writing · Instructor: Mourad Mekki</p>
+      </div>
+      <p class="pr-report-type">Student Handout</p>
+    </div>
+
+    <h2 class="pr-title">IELTS Academic Writing — Quick Guide</h2>
+
+    <p class="pr-section">The exam at a glance</p>
+    <table class="pr-table">
+      <thead><tr><th>Task</th><th>What it is</th><th class="pr-td-num">Words</th><th class="pr-td-num">Time</th><th class="pr-td-num">Weight</th></tr></thead>
+      <tbody>
+        <tr><th>Task 1</th><td>Describe a graph, chart, table, map, or process — objectively, no opinions.</td><td class="pr-td-num">150+</td><td class="pr-td-num">20 min</td><td class="pr-td-num">⅓</td></tr>
+        <tr><th>Task 2</th><td>Write an essay with a clear position and developed argument.</td><td class="pr-td-num">250+</td><td class="pr-td-num">40 min</td><td class="pr-td-num">⅔</td></tr>
+      </tbody>
+    </table>
+
+    <p class="pr-section">Recommended timing</p>
+    <table class="pr-table">
+      <thead><tr><th>Stage</th><th class="pr-td-num">Task 1 (20 min)</th><th class="pr-td-num">Task 2 (40 min)</th></tr></thead>
+      <tbody>
+        <tr><th>Plan</th><td class="pr-td-num">3–5 min</td><td class="pr-td-num">5 min</td></tr>
+        <tr><th>Write</th><td class="pr-td-num">12–15 min</td><td class="pr-td-num">30 min</td></tr>
+        <tr><th>Check</th><td class="pr-td-num">2 min</td><td class="pr-td-num">5 min</td></tr>
+      </tbody>
+    </table>
+
+    <p class="pr-section">How it is scored — four equal criteria</p>
+    <ul class="pr-list">
+      <li><b>Task Achievement / Response</b> — fully answer the question; Task 1 needs an overview.</li>
+      <li><b>Coherence &amp; Cohesion</b> — clear paragraphs and logical flow.</li>
+      <li><b>Lexical Resource</b> — varied, precise, accurate vocabulary.</li>
+      <li><b>Grammatical Range &amp; Accuracy</b> — a mix of structures with few errors.</li>
+    </ul>
+
+    <div class="pr-cols">
+      <div>
+        <p class="pr-section">Do</p>
+        <ul class="pr-list">
+          <li>Plan before writing.</li>
+          <li>Answer the exact question.</li>
+          <li>Write an overview in Task 1.</li>
+          <li>Use paragraphs and examples.</li>
+          <li>Check grammar and spelling.</li>
+          <li>Keep a formal tone.</li>
+        </ul>
+      </div>
+      <div>
+        <p class="pr-section">Don't</p>
+        <ul class="pr-list">
+          <li>Memorise whole essays.</li>
+          <li>Copy the question wording.</li>
+          <li>Give opinions in Task 1.</li>
+          <li>Ignore the overview.</li>
+          <li>Write off-topic.</li>
+          <li>Overrun on Task 1.</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="pr-section">Before you submit — checklist</p>
+    <ul class="pr-list pr-check">
+      <li>Did I answer the question?</li>
+      <li>Did I write enough words (150+ / 250+)?</li>
+      <li>Did I use clear paragraphs?</li>
+      <li>Did I include an overview for Task 1?</li>
+      <li>Did I support my Task 2 ideas?</li>
+      <li>Did I check spelling and grammar?</li>
+      <li>Did I avoid informal language?</li>
+    </ul>
+
+    <p class="pr-foot">IELTSwithMOURAD — Academic Writing Platform</p>
   </div>
 
   <script src="js/config.js"></script>
