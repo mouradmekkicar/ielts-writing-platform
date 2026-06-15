@@ -686,8 +686,13 @@ main { position: relative; z-index: 1; }
 .lab-mon-student:first-child { border-top: 0; padding-top: 0; }
 .lab-mon-name { font-family: var(--serif); font-size: 0.96rem; color: var(--gold-bright); margin: 0 0 0.5rem; }
 .lab-mon-item { background: rgba(6, 14, 28, 0.4); border: 1px solid rgba(201, 169, 97, 0.16); border-radius: var(--radius-sm); padding: 0.55rem 0.65rem; margin-bottom: 0.5rem; }
-.lab-mon-item-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.35rem; }
-.lab-mon-act { font-size: 0.76rem; color: var(--ivory); font-weight: 600; }
+.lab-mon-item-head { display: flex; align-items: center; justify-content: flex-start; gap: 0.5rem; margin-bottom: 0.35rem; }
+.lab-mon-act { font-size: 0.76rem; color: var(--ivory); font-weight: 600; flex: 1 1 auto; }
+.lab-mon-collapse { flex: none; background: none; border: 0; padding: 2px 4px; color: var(--gold-bright); display: inline-flex; align-items: center; cursor: pointer; }
+.lab-mon-collapse .acc-chev { width: 8px; height: 8px; transform: rotate(45deg); transition: transform 0.2s ease; }
+.lab-mon-item.is-collapsed .lab-mon-collapse .acc-chev { transform: rotate(-45deg); }
+.lab-mon-item.is-collapsed .lab-mon-body { display: none; }
+.lab-mon-item.is-collapsed .lab-mon-item-head { margin-bottom: 0; }
 .lab-mon-text { font-size: 0.84rem; color: var(--mist); margin: 0; font-family: var(--serif); white-space: pre-wrap; word-break: break-word; }
 .lab-mon-empty { font-style: italic; opacity: 0.6; }
 .lab-mon-meta { font-size: 0.68rem; color: var(--ink-soft); margin: 0.3rem 0 0; }

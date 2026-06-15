@@ -2290,6 +2290,7 @@ function renderLabActivities() {
   el("labActivityGrid").innerHTML = html || '<p class="empty-note">No activities match your search.</p>';
   updateLabPickCount();
 }
+var _labCollapsed = {};
 function renderLabMonitor() {
   var roster = ClinicService.roster();
   var assigns = ClinicService.assignments();
@@ -2305,6 +2306,8 @@ function renderLabMonitor() {
       var info = labStatusInfo(st);
       var w = st.work || {};
       var c = CLINIC[i];
+      var ckey = s.key + "::" + i;
+      var collapsed = !!_labCollapsed[ckey];
       var preview = (w.attempt && w.attempt.trim())
         ? '<p class="lab-mon-text">' + esc(w.attempt) + "</p>"
         : '<p class="lab-mon-text lab-mon-empty">\u2014 no text yet \u2014</p>';
@@ -2326,14 +2329,25 @@ function renderLabMonitor() {
             '</div>' +
           '</div>' +
         '</details>';
-      return '<div class="lab-mon-item"><div class="lab-mon-item-head"><span class="lab-mon-act">' +
-        String(i + 1).padStart(2, "0") + " \u00b7 " + esc(c.title) + "</span>" +
-        '<span class="pill ' + info.cls + '">' + info.label + "</span></div>" + preview + meta + asStudent + "</div>";
+      return '<div class="lab-mon-item' + (collapsed ? " is-collapsed" : "") + '" data-mon-key="' + esc(ckey) + '">' +
+        '<div class="lab-mon-item-head">' +
+          '<button class="lab-mon-collapse" data-mon-collapse="' + esc(ckey) + '" aria-label="Collapse or expand"><span class="acc-chev" aria-hidden="true"></span></button>' +
+          '<span class="lab-mon-act">' + String(i + 1).padStart(2, "0") + " \u00b7 " + esc(c.title) + "</span>" +
+          '<span class="pill ' + info.cls + '">' + info.label + "</span></div>" +
+        '<div class="lab-mon-body">' + preview + meta + asStudent + "</div></div>";
     }).join("");
     return '<div class="lab-mon-student"><p class="lab-mon-name">' + esc(s.name) + "</p>" + rows + "</div>";
   }).join("");
   el("labMonitor").innerHTML = html || '<p class="empty-note">No students have these activities assigned yet.</p>';
 }
+document.addEventListener("click", function (e) {
+  var b = e.target.closest("[data-mon-collapse]");
+  if (!b) return;
+  var item = b.closest(".lab-mon-item");
+  if (!item) return;
+  var collapsed = item.classList.toggle("is-collapsed");
+  if (collapsed) _labCollapsed[b.dataset.monCollapse] = true; else delete _labCollapsed[b.dataset.monCollapse];
+});
 function clinicProgressLabel(a) {
   var idx = a.clinicIndex;
   if (a.studentId !== "*") {
