@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IELTSwithMOURAD — Academic Writing Platform</title>
+  <meta name="description" content="IELTSwithMOURAD Academic Writing coaching platform — Task 1 &amp; Task 2 practice and exam mode, AI writing diagnostics, teacher review, reports and certificates.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Ambient particles -->
+  <div class="particles" aria-hidden="true">
+    <span></span><span></span><span></span><span></span>
+    <span></span><span></span><span></span><span></span>
+  </div>
+
+  <!-- ===================== HEADER ===================== -->
+  <header class="site-header">
+    <div class="header-inner">
+      <button class="brand" id="brandHome" aria-label="IELTSwithMOURAD home">
+        <img class="brand-coin" src="assets/logo/coin-logo.png" alt="">
+        <span>
+          <span class="brand-name">IELTS<em>with</em>MOURAD</span>
+          <span class="brand-sub">Academic Writing</span>
+        </span>
+      </button>
+
+      <div class="topbar" id="topbar">
+        <button class="nav-toggle" id="navToggle" aria-expanded="false" aria-controls="navList">Menu</button>
+        <ul class="nav-list" id="navList"></ul>
+        <div class="whoami" id="whoami"></div>
+        <button class="signout-btn" id="signOutBtn">Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===================== MAIN ===================== -->
+  <main>
+
+    <!-- AUTH -->
+    <section class="view" data-view="auth" id="view-auth">
+      <div class="auth-wrap">
+        <div class="auth-coin-wrap">
+          <span class="auth-coin-glow" aria-hidden="true"></span>
+          <img class="auth-coin" src="assets/logo/coin-logo.png" alt="IELTSwithMOURAD emblem">
+        </div>
+        <p class="auth-eyebrow">IELTSwithMOURAD</p>
+        <h1 class="auth-title">Academic Writing Platform</h1>
+        <p class="auth-sub">Task 1 &amp; Task 2 coaching — practice, exam mode, diagnostics, and progress, all in one place.</p>
+
+        <div class="auth-card">
+          <label for="authName">Display name</label>
+          <input class="auth-input" id="authName" type="text" placeholder="e.g. Aisha R." autocomplete="off" maxlength="40">
+          <div class="auth-actions">
+            <button class="btn btn-gold" id="authStudentBtn">Enter as student</button>
+            <button class="btn btn-navy" id="authTeacherBtn">Enter as teacher / admin</button>
+          </div>
+          <p class="auth-error" id="authError" role="alert"></p>
+          <p class="auth-roles"><strong>Students</strong> write, get diagnostics and track progress. <strong>Teachers</strong> assign homework, review work, override bands and issue certificates.</p>
+        </div>
+
+        <p class="auth-note">Privacy-first prototype: only a display name is collected — no email, no password, no school data. Your work is saved in this browser (localStorage) until a secure cloud backend is connected.</p>
+      </div>
+    </section>
+
+    <!-- DASHBOARD (role-aware, rendered by JS) -->
+    <section class="view" data-view="dashboard" id="view-dashboard"></section>
+
+    <!-- TASK 1 GALLERY -->
+    <section class="view" data-view="task1" id="view-task1">
+      <div class="view-head">
+        <p class="view-eyebrow">IELTS Academic · Writing Task 1</p>
+        <h2 class="view-title">Task 1 Studio</h2>
+        <p class="view-sub">Describe data and processes accurately. Choose a mission, then practise freely or sit it under exam conditions.</p>
+      </div>
+      <div class="mission-grid" id="task1Grid"></div>
+    </section>
+
+    <!-- TASK 2 GALLERY -->
+    <section class="view" data-view="task2" id="view-task2">
+      <div class="view-head">
+        <p class="view-eyebrow">IELTS Academic · Writing Task 2</p>
+        <h2 class="view-title">Task 2 Studio</h2>
+        <p class="view-sub">Build a clear position and well-developed argument. Pick an essay type to begin.</p>
+      </div>
+      <div class="mission-grid" id="task2Grid"></div>
+    </section>
+
+    <!-- WORKSPACE (built dynamically) -->
+    <section class="view" data-view="workspace" id="view-workspace">
+      <div id="workspaceBody"></div>
+    </section>
+
+    <!-- WRITING CLINIC -->
+    <section class="view" data-view="clinic" id="view-clinic">
+      <div class="view-head">
+        <p class="view-eyebrow">Diagnostic improvement lab</p>
+        <h2 class="view-title">Writing Clinic</h2>
+        <p class="view-sub">Fifteen common problems that cost band points — with weak examples, fixes, and a quick activity for each.</p>
+        <div class="clinic-room-wrap">
+          <label class="field-label" for="clinicRoom">Class code</label>
+          <input class="field-input" id="clinicRoom" type="text" placeholder="mmwa-main" aria-label="Class code">
+          <span class="clinic-conn" id="clinicConn"></span>
+        </div>
+      </div>
+      <div class="clinic-grid" id="clinicGrid"></div>
+    </section>
+
+    <!-- PRACTICE LIBRARY -->
+    <section class="view" data-view="library" id="view-library">
+      <div class="view-head">
+        <p class="view-eyebrow">All tasks in one place</p>
+        <h2 class="view-title">Practice Library</h2>
+        <p class="view-sub">Filter by task, type, difficulty, target band and your own progress.</p>
+      </div>
+      <div class="lib-filters">
+        <input class="lib-search" id="libSearch" type="search" placeholder="Search tasks…" aria-label="Search tasks">
+        <select id="libTask" aria-label="Filter by task">
+          <option value="">All tasks</option>
+          <option value="task1">Task 1</option>
+          <option value="task2">Task 2</option>
+        </select>
+        <select id="libType" aria-label="Filter by type"><option value="">All types</option></select>
+        <select id="libDifficulty" aria-label="Filter by difficulty">
+          <option value="">All difficulties</option>
+          <option>Foundation</option>
+          <option>Core</option>
+          <option>Challenge</option>
+        </select>
+        <select id="libBand" aria-label="Filter by target band">
+          <option value="">All target bands</option>
+          <option value="5.5–6.0">5.5–6.0</option>
+          <option value="6.0–6.5">6.0–6.5</option>
+          <option value="6.5–7.5">6.5–7.5</option>
+        </select>
+        <select id="libStatus" aria-label="Filter by status">
+          <option value="">All statuses</option>
+          <option value="not-started">Not started</option>
+          <option value="in-progress">In progress</option>
+          <option value="completed">Completed</option>
+        </select>
+      </div>
+      <div class="lib-grid" id="libGrid"></div>
+      <p class="lib-empty" id="libEmpty" hidden>No tasks match these filters.</p>
+    </section>
+
+    <!-- REPORTS -->
+    <section class="view" data-view="reports" id="view-reports">
+      <div class="view-head">
+        <p class="view-eyebrow">Professional, A4 print-perfect</p>
+        <h2 class="view-title">Reports &amp; Certificates</h2>
+        <p class="view-sub">Generate a print-ready report or certificate from any submission.</p>
+      </div>
+      <div class="report-builder">
+        <div class="panel glass-panel pad">
+          <div class="form-grid">
+            <div class="form-row" id="repStudentWrap">
+              <label class="field-label" for="repStudent">Student</label>
+              <select class="field-input" id="repStudent"></select>
+            </div>
+            <div class="form-row">
+              <label class="field-label" for="repType">Report type</label>
+              <select class="field-input" id="repType">
+                <option value="submission">Student submission report</option>
+                <option value="teacher">Teacher diagnostic report</option>
+                <option value="parent">Parent-friendly progress report</option>
+                <option value="progress">Full writing progress report</option>
+                <option value="homework">Printable homework report</option>
+                <option value="certificate">Certificate of completion</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <label class="field-label" for="repSession">Submission</label>
+            <select class="field-input" id="repSession"></select>
+          </div>
+          <div class="form-row">
+            <label class="field-label" for="repComments">Comments to include (optional)</label>
+            <textarea class="field-input" id="repComments" rows="3" placeholder="Add any encouragement or guidance to print on the report…"></textarea>
+          </div>
+          <div class="report-preview-actions">
+            <button class="btn btn-gold" id="repPrint">Generate &amp; print</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TEACHER · STUDENTS -->
+    <section class="view" data-view="students" id="view-students">
+      <div class="view-head">
+        <p class="view-eyebrow">Teacher / Admin</p>
+        <h2 class="view-title">Students</h2>
+        <p class="view-sub">Students appear automatically when they sign in. Assign work, manage exam access, and issue certificates.</p>
+      </div>
+      <div class="students-body"></div>
+      <div class="ws-actions" style="margin-top:1.2rem">
+        <button class="btn btn-ghost btn-sm" id="addSampleStudent">+ Add sample student</button>
+      </div>
+    </section>
+
+    <!-- TEACHER · ASSIGNMENTS -->
+    <section class="view" data-view="assignments" id="view-assignments">
+      <div class="view-head">
+        <p class="view-eyebrow">Teacher / Admin</p>
+        <h2 class="view-title">Homework Assignments</h2>
+        <p class="view-sub">Assign a task to one student or the whole class, set the mode and a deadline.</p>
+      </div>
+
+      <div class="panel glass-panel pad assign-form">
+        <div class="form-grid">
+          <div class="form-row">
+            <label class="field-label" for="asgStudent">Assign to</label>
+            <select class="field-input" id="asgStudent"></select>
+          </div>
+          <div class="form-row">
+            <label class="field-label" for="asgTask">Task</label>
+            <select class="field-input" id="asgTask"></select>
+          </div>
+          <div class="form-row">
+            <label class="field-label" for="asgMode">Mode</label>
+            <select class="field-input" id="asgMode">
+              <option value="practice">Practice mode</option>
+              <option value="exam">Exam mode</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label class="field-label" for="asgDeadline">Deadline (optional)</label>
+            <input class="field-input" id="asgDeadline" type="date">
+          </div>
+          <div class="form-row">
+            <label class="field-label" for="asgCode">Unlock code (optional)</label>
+            <input class="field-input" id="asgCode" type="text" placeholder="e.g. WRITE24">
+          </div>
+        </div>
+        <div class="form-row">
+          <label class="field-label" for="asgInstr">Instructions (optional)</label>
+          <textarea class="field-input" id="asgInstr" rows="2" placeholder="Anything the student should keep in mind…"></textarea>
+        </div>
+        <div class="report-preview-actions">
+          <button class="btn btn-gold" id="asgCreate">Assign homework</button>
+        </div>
+      </div>
+
+      <h3 class="block-title">Current assignments</h3>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Student</th><th>Task</th><th>Mode</th><th>Difficulty</th><th>Deadline</th><th>Code</th><th></th></tr></thead>
+          <tbody id="asgList"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- TEACHER · IMPROVEMENT LAB -->
+    <section class="view" data-view="improvement" id="view-improvement">
+      <div class="view-head">
+        <p class="view-eyebrow">Teacher / Admin · Diagnostic improvement lab</p>
+        <h2 class="view-title">Improvement Lab</h2>
+        <p class="view-sub">Browse every clinic activity, assign or unlock it for one student or the whole class, then watch them work in real time.</p>
+      </div>
+
+      <div class="lab-cols">
+        <div class="lab-col-main">
+          <div class="lab-toolbar">
+            <input class="lib-search" id="labSearch" type="search" placeholder="Search activities…" aria-label="Search activities">
+            <div class="lab-assign-to">
+              <label class="field-label" for="labAssignTo">Assign / unlock for</label>
+              <select class="field-input" id="labAssignTo" aria-label="Assign to"></select>
+            </div>
+            <div class="lab-room-wrap">
+              <label class="field-label" for="labRoom">Class code</label>
+              <input class="field-input" id="labRoom" type="text" placeholder="mmwa-main" aria-label="Class code">
+            </div>
+          </div>
+          <p class="lab-hint">Leave the unlock code empty to open an activity immediately. Add a code to keep it locked until you share the code with the student.</p>
+          <div class="lab-activity-grid" id="labActivityGrid"></div>
+        </div>
+
+        <aside class="lab-col-side">
+          <h3 class="block-title lab-live-title">Live monitor <span class="lab-live-dot" id="labLiveDot" title="Realtime channel"></span></h3>
+          <p class="lab-live-sub" id="labLiveSub"></p>
+          <div class="lab-monitor" id="labMonitor"></div>
+        </aside>
+      </div>
+
+      <h3 class="block-title" style="margin-top:1.6rem">Current activity assignments</h3>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Activity</th><th>Assigned to</th><th>Access</th><th>Progress</th><th></th></tr></thead>
+          <tbody id="labAsgList"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- TEACHER · SUBMISSIONS -->
+    <section class="view" data-view="submissions" id="view-submissions">
+      <div class="view-head">
+        <p class="view-eyebrow">Teacher / Admin</p>
+        <h2 class="view-title">Submissions</h2>
+        <p class="view-sub">Open any submission to read it, review the diagnostic, and enter your final band.</p>
+      </div>
+
+      <div class="filter-bar">
+        <select id="subStudent" aria-label="Filter by student"><option value="">All students</option></select>
+        <select id="subKind" aria-label="Filter by task">
+          <option value="">All tasks</option>
+          <option value="task1">Task 1</option>
+          <option value="task2">Task 2</option>
+        </select>
+        <select id="subMode" aria-label="Filter by mode">
+          <option value="">All modes</option>
+          <option value="practice">Practice</option>
+          <option value="exam">Exam</option>
+        </select>
+        <select id="subReviewed" aria-label="Filter by review status">
+          <option value="">All</option>
+          <option value="no">Pending review</option>
+          <option value="yes">Reviewed</option>
+        </select>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Student</th><th>Task</th><th>Mode</th><th class="num">Words</th><th class="num">AI</th><th class="num">Final</th><th>Status</th><th>Date</th><th></th></tr></thead>
+          <tbody id="subList"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- TEACHER · SUBMISSION DETAIL (built dynamically) -->
+    <section class="view" data-view="detail" id="view-detail">
+      <div id="detailBody"></div>
+    </section>
+
+  </main>
+
+  <!-- ===================== FOOTER ===================== -->
+  <footer class="site-footer">
+    IELTSwithMOURAD · Academic Writing Platform — Instructor: Mourad Mekki, IELTS Specialist
+  </footer>
+
+  <!-- ===================== IMAGE ZOOM MODAL ===================== -->
+  <div class="modal" id="imgModal" hidden>
+    <div class="modal-backdrop" data-close-modal></div>
+    <figure class="modal-figure">
+      <button class="modal-close" id="modalClose" aria-label="Close image">&times;</button>
+      <img id="modalImg" src="" alt="">
+    </figure>
+  </div>
+
+  <!-- ===================== PRINT · A4 REPORT ===================== -->
+  <div class="print-sheet" id="printReport" aria-hidden="true">
+    <div class="pr-head">
+      <img class="pr-coin" src="assets/logo/coin-logo.png" alt="">
+      <div>
+        <h1 class="pr-brand">IELTS<em>with</em>MOURAD</h1>
+        <p class="pr-brand-sub">Academic Writing · Instructor: Mourad Mekki</p>
+      </div>
+      <p class="pr-report-type" id="prReportTitle">Report</p>
+    </div>
+
+    <h2 class="pr-title" id="prPromptTitle">—</h2>
+
+    <div class="pr-meta-grid">
+      <div><span>Student</span><b id="prStudent">—</b></div>
+      <div><span>Date</span><b id="prDate">—</b></div>
+      <div><span>Task</span><b id="prTaskType">—</b></div>
+      <div><span>Word count</span><b id="prWords">—</b></div>
+      <div><span>Time spent</span><b id="prTime">—</b></div>
+    </div>
+
+    <div class="pr-band-block" id="prBandBlock"></div>
+
+    <p class="pr-section">Criterion breakdown</p>
+    <table class="pr-table">
+      <thead><tr><th>Criterion</th><th class="pr-td-num">AI estimate</th><th class="pr-td-num">Teacher</th></tr></thead>
+      <tbody id="prCriteria"></tbody>
+    </table>
+
+    <div class="pr-cols">
+      <div>
+        <p class="pr-section">Strengths</p>
+        <ul class="pr-list" id="prStrengths"></ul>
+      </div>
+      <div>
+        <p class="pr-section">Priorities to improve</p>
+        <ul class="pr-list" id="prWeak"></ul>
+      </div>
+    </div>
+
+    <div id="prErrorsSection">
+      <p class="pr-section">Error categories</p>
+      <ul class="pr-list" id="prErrors"></ul>
+    </div>
+
+    <p class="pr-section">Next steps</p>
+    <p class="pr-next" id="prNext">—</p>
+
+    <p class="pr-section">Teacher comments</p>
+    <p class="pr-comments" id="prComments">—</p>
+
+    <div id="prCorrRow">
+      <p class="pr-section">Correction notes</p>
+      <p class="pr-comments" id="prCorr">—</p>
+    </div>
+
+    <div class="pr-sign">
+      <div class="pr-sign-line">Mourad Mekki · IELTS Specialist</div>
+      <div class="pr-sign-line">Student signature</div>
+    </div>
+    <p class="pr-foot">IELTSwithMOURAD — Academic Writing Platform</p>
+  </div>
+
+  <!-- ===================== PRINT · CERTIFICATE ===================== -->
+  <div class="print-sheet" id="certificate" aria-hidden="true">
+    <div class="cert-frame">
+      <img class="cert-coin" src="assets/logo/coin-logo.png" alt="">
+      <h1 class="cert-brand">IELTS<em>with</em>MOURAD</h1>
+      <p class="cert-kicker">Academic Writing</p>
+      <h2 class="cert-h">Certificate of Completion</h2>
+      <div class="cert-rule"></div>
+      <p class="cert-awarded">This certificate is proudly awarded to</p>
+      <p class="cert-name" id="certName">—</p>
+      <p class="cert-stat" id="certStat">—</p>
+      <p class="cert-module" id="certModule">—</p>
+      <div class="cert-sign-row">
+        <div class="cert-sign"><strong>Mourad Mekki</strong>IELTS Specialist · Instructor</div>
+        <div class="cert-sign"><strong id="certDate">—</strong>Date of issue</div>
+      </div>
+      <p class="cert-foot">IELTSwithMOURAD — Academic Writing Platform</p>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/supabase.min.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
