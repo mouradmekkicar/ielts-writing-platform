@@ -592,11 +592,22 @@ const AuthService = (function () {
 
     current: function () { return authMode() === "supabase" ? _user : localCurrent(); },
     role: function () { var u = this.current(); return u ? u.role : null; },
-    students: function () { return StorageService.read().users.filter(function (u) { return u.role === "student"; }); },
+    students: function () {
+      var local = StorageService.read().users.filter(function (u) { return u.role === "student"; });
+      if (authMode() !== "supabase") return local;
+      var map = {};
+      var cs = CloudService.cache.students || {};
+      for (var id in cs) map[id] = { id: id, name: cs[id].name, role: "student" };
+      local.forEach(function (u) { if (!map[u.id]) map[u.id] = u; });
+      return Object.keys(map).map(function (id) { return map[id]; }).sort(function (a, b) { return (a.name || "").localeCompare(b.name || ""); });
+    },
     byId: function (id) {
       var local = StorageService.read().users.find(function (u) { return u.id === id; });
       if (local) return local;
-      if (authMode() === "supabase") { var nm = (CloudService.cache.roster || {})[id]; if (nm) return { id: id, name: nm, role: "student" }; }
+      if (authMode() === "supabase") {
+        var cs = (CloudService.cache.students || {})[id]; if (cs) return cs;
+        var nm = (CloudService.cache.roster || {})[id]; if (nm) return { id: id, name: nm, role: "student" };
+      }
       return null;
     },
 
@@ -684,22 +695,43 @@ const TaskService = {
 const SubmissionService = {
   draftKey: function (userId, taskId) { return userId + "::" + taskId; },
   getDraft: function (userId, taskId) {
-    var d = StorageService.read().drafts[this.draftKey(userId, taskId)];
-    return d || {};
+    var k = this.draftKey(userId, taskId);
+    var local = StorageService.read().drafts[k];
+    if (cloudReady()) {
+      var c = (CloudService.cache.drafts || {})[k];
+      if (c && (!local || (c.updatedAt || "") > (local.updatedAt || ""))) return c;
+    }
+    return local || {};
   },
   patchDraft: function (userId, taskId, patch) {
-    var k = this.draftKey(userId, taskId);
+    var k = this.draftKey(userId, taskId), merged;
     StorageService.update(function (db) {
-      db.drafts[k] = Object.assign({}, db.drafts[k] || {}, patch, { updatedAt: nowISO() });
+      merged = Object.assign({}, db.drafts[k] || {}, patch, { updatedAt: nowISO() });
+      db.drafts[k] = merged;
     });
+    CloudService.putDraft(k, merged);
   },
   subId: function (userId, taskId, mode) { return userId + "|" + taskId + "|" + mode; },
+  /* merged view: cloud (shared truth) ∪ local (offline / freshest), newest stamp wins */
+  allMerged: function () {
+    var local = StorageService.read().submissions || [];
+    var map = {};
+    local.forEach(function (s) { map[s.id] = s; });
+    if (cloudReady()) {
+      var cloud = CloudService.cache.submissions || {};
+      for (var id in cloud) {
+        var c = cloud[id], l = map[id];
+        if (!l || subStamp(c) >= subStamp(l)) map[id] = c;
+      }
+    }
+    return Object.keys(map).map(function (id) { return map[id]; });
+  },
   get: function (userId, taskId, mode) {
     var id = this.subId(userId, taskId, mode);
-    return StorageService.read().submissions.find(function (s) { return s.id === id; }) || null;
+    return this.allMerged().find(function (s) { return s.id === id; }) || null;
   },
   list: function (filter) {
-    var subs = StorageService.read().submissions.slice();
+    var subs = this.allMerged();
     subs.sort(function (a, b) { return (b.submittedAt || "").localeCompare(a.submittedAt || ""); });
     if (!filter) return subs;
     return subs.filter(function (s) {
@@ -711,23 +743,26 @@ const SubmissionService = {
       return true;
     });
   },
-  byId: function (id) { return StorageService.read().submissions.find(function (s) { return s.id === id; }) || null; },
+  byId: function (id) { return this.allMerged().find(function (s) { return s.id === id; }) || null; },
   /* Practice: upsert a single latest attempt; repeatable; not locked. */
   submitPractice: function (userId, taskId, payload) {
     var id = this.subId(userId, taskId, "practice");
     var task = TaskService.byId(taskId);
     var feedback = FeedbackService.generateAIWritingFeedback({ text: payload.text, kind: task.kind, task: task, checklist: payload.checklist, words: payload.words });
+    var prev = this.byId(id);
     StorageService.update(function (db) {
       var rec = db.submissions.find(function (s) { return s.id === id; });
       var data = {
         id: id, userId: userId, taskId: taskId, kind: task.kind, type: task.type, title: task.title,
         mode: "practice", text: payload.text, words: payload.words, timeSpent: payload.timeSpent || 0,
-        checklist: payload.checklist || {}, ai: feedback, review: (rec && rec.review) || null,
+        checklist: payload.checklist || {}, ai: feedback, review: (rec && rec.review) || (prev && prev.review) || null,
         locked: false, status: "submitted", submittedAt: nowISO()
       };
       if (rec) Object.assign(rec, data); else db.submissions.push(data);
     });
-    return this.byId(id);
+    var saved = StorageService.read().submissions.find(function (s) { return s.id === id; });
+    CloudService.putSubmission(saved);
+    return saved;
   },
   /* Exam: one locked submission. Blocked if a locked one already exists. */
   canSitExam: function (userId, taskId) {
@@ -740,34 +775,41 @@ const SubmissionService = {
     var id = this.subId(userId, taskId, "exam");
     var task = TaskService.byId(taskId);
     var feedback = FeedbackService.generateAIWritingFeedback({ text: payload.text, kind: task.kind, task: task, checklist: payload.checklist, words: payload.words });
+    var prev = this.byId(id);
     StorageService.update(function (db) {
       var rec = db.submissions.find(function (s) { return s.id === id; });
-      var attempt = rec ? (rec.attempt || 1) + 1 : 1;
+      var attempt = (rec ? (rec.attempt || 1) : (prev ? (prev.attempt || 1) : 0)) + 1;
       var data = {
         id: id, userId: userId, taskId: taskId, kind: task.kind, type: task.type, title: task.title,
         mode: "exam", text: payload.text, words: payload.words, timeSpent: payload.timeSpent || 0,
-        checklist: payload.checklist || {}, ai: feedback, review: (rec && rec.review) || null,
+        checklist: payload.checklist || {}, ai: feedback, review: (rec && rec.review) || (prev && prev.review) || null,
         locked: true, retakeAllowed: false, attempt: attempt, status: "submitted", submittedAt: nowISO()
       };
       if (rec) Object.assign(rec, data); else db.submissions.push(data);
     });
+    var saved = StorageService.read().submissions.find(function (s) { return s.id === id; });
+    CloudService.putSubmission(saved);
     TokenService.consume(userId);
-    return this.byId(id);
+    return saved;
   },
   allowRetake: function (submissionId) {
+    var cur = this.byId(submissionId); if (!cur) return;
+    var updated = Object.assign({}, cur, { retakeAllowed: true, locked: false });
     StorageService.update(function (db) {
-      var s = db.submissions.find(function (x) { return x.id === submissionId; });
-      if (s) { s.retakeAllowed = true; s.locked = false; }
+      var i = db.submissions.findIndex(function (x) { return x.id === submissionId; });
+      if (i >= 0) db.submissions[i] = updated; else db.submissions.push(updated);
     });
+    CloudService.putSubmission(updated);
   },
   applyReview: function (submissionId, review, reviewerName) {
+    var cur = this.byId(submissionId); if (!cur) return null;
+    var updated = Object.assign({}, cur, { review: Object.assign({}, review, { reviewed: true, reviewedAt: nowISO(), by: reviewerName }), status: "reviewed" });
     StorageService.update(function (db) {
-      var s = db.submissions.find(function (x) { return x.id === submissionId; });
-      if (!s) return;
-      s.review = Object.assign({}, review, { reviewed: true, reviewedAt: nowISO(), by: reviewerName });
-      s.status = "reviewed";
+      var i = db.submissions.findIndex(function (x) { return x.id === submissionId; });
+      if (i >= 0) db.submissions[i] = updated; else db.submissions.push(updated);
     });
-    return this.byId(submissionId);
+    CloudService.putSubmission(updated);
+    return updated;
   }
 };
 
@@ -993,10 +1035,19 @@ const AssignmentService = {
   create: function (data) {
     var rec = Object.assign({ id: uid("hw"), createdAt: nowISO() }, data);
     StorageService.update(function (db) { db.assignments.push(rec); });
+    CloudService.putHomework(rec);
     return rec;
   },
-  remove: function (id) { StorageService.update(function (db) { db.assignments = db.assignments.filter(function (a) { return a.id !== id; }); }); },
-  all: function () { return StorageService.read().assignments.slice().sort(function (a, b) { return (b.createdAt || "").localeCompare(a.createdAt || ""); }); },
+  remove: function (id) {
+    StorageService.update(function (db) { db.assignments = db.assignments.filter(function (a) { return a.id !== id; }); });
+    CloudService.delHomework(id);
+  },
+  all: function () {
+    var local = StorageService.read().assignments.slice();
+    var map = {}; local.forEach(function (a) { map[a.id] = a; });
+    if (cloudReady()) { var hw = CloudService.cache.homework || {}; for (var id in hw) map[id] = hw[id]; }
+    return Object.keys(map).map(function (id) { return map[id]; }).sort(function (a, b) { return (b.createdAt || "").localeCompare(a.createdAt || ""); });
+  },
   forStudent: function (studentId) { return this.all().filter(function (a) { return a.studentId === studentId || a.studentId === "*"; }); },
   statusFor: function (assignment, studentId) {
     var sub = SubmissionService.list({ userId: studentId }).find(function (s) { return s.taskId === assignment.taskId && s.mode === assignment.mode; });
@@ -1024,11 +1075,14 @@ function studentKey(name) { return String(name || "").trim().toLowerCase().repla
 /* canonical clinic identity for a user: account uid when signed in with an
    account, else the normalised display name (name-only fallback mode). */
 function clinicKeyFor(u) { if (!u) return ""; return u.key || (authMode() === "supabase" ? u.id : studentKey(u.name)); }
+/* true when the cloud is configured AND a live session/connection is up */
+function cloudReady() { return CloudService.available() && CloudService.isConnected(); }
+function subStamp(s) { var a = (s && s.submittedAt) || ""; var b = (s && s.review && s.review.reviewedAt) || ""; return a > b ? a : b; }
 
 const CloudService = (function () {
   var cfg = (typeof window !== "undefined" && window.MMWA_CONFIG) || {};
   var client = null, connected = false, channel = null, roomOverride = "";
-  var cache = { assignments: [], work: {}, roster: {} };
+  var cache = { assignments: [], work: {}, roster: {}, students: {}, submissions: {}, drafts: {}, tokens: {}, certs: {}, homework: {} };
   var changeFns = [];
   function fireChange() { for (var i = 0; i < changeFns.length; i++) { try { changeFns[i](); } catch (e) {} } }
   function available() {
@@ -1064,7 +1118,8 @@ const CloudService = (function () {
         (w.data || []).forEach(function (row) { cache.work[row.student_key + "::" + row.clinic_index] = row; });
         cache.roster = {};
         // students known from their account profiles (lets the teacher target them before they open the clinic)
-        if (!pr.error) (pr.data || []).forEach(function (p) { if (p.id) cache.roster[p.id] = p.display_name || p.id; });
+        cache.students = {};
+        if (!pr.error) (pr.data || []).forEach(function (p) { if (p.id) { cache.roster[p.id] = p.display_name || p.id; cache.students[p.id] = { id: p.id, name: p.display_name || p.id, role: "student" }; } });
         (ro.data || []).forEach(function (row) { if (!cache.roster[row.student_key]) cache.roster[row.student_key] = row.student_name; });
         (w.data || []).forEach(function (row) { if (!cache.roster[row.student_key]) cache.roster[row.student_key] = row.student_name; });
         (a.data || []).forEach(function (row) { if (row.student_key !== "*" && row.student_name && !cache.roster[row.student_key]) cache.roster[row.student_key] = row.student_name; });
@@ -1072,6 +1127,20 @@ const CloudService = (function () {
         fireChange();
       }, function () { connected = false; fireChange(); });
     } catch (e) { connected = false; }
+    hydrateData();
+  }
+  /* Phase 2 — best-effort cloud sync of the rest of the app's data. Each table
+     is fetched independently; a missing table just leaves that slice on local. */
+  function hydrateData() {
+    if (!ensureClient()) return;
+    var grab = function (table, onData) {
+      try { client.from(table).select("*").then(function (res) { if (res && !res.error) { onData(res.data || []); fireChange(); } }, function () {}); } catch (e) {}
+    };
+    grab("mmwa_submissions", function (rows) { var m = {}; rows.forEach(function (r) { if (r.data) m[r.id] = r.data; }); cache.submissions = m; });
+    grab("mmwa_drafts", function (rows) { var m = {}; rows.forEach(function (r) { if (r.data) m[r.id] = r.data; }); cache.drafts = m; });
+    grab("mmwa_tokens", function (rows) { var m = {}; rows.forEach(function (r) { if (r.data) m[r.user_id] = r.data; }); cache.tokens = m; });
+    grab("mmwa_certificates", function (rows) { var m = {}; rows.forEach(function (r) { if (r.data) m[r.id] = r.data; }); cache.certs = m; });
+    grab("mmwa_homework", function (rows) { var m = {}; rows.forEach(function (r) { if (r.data) m[r.id] = r.data; }); cache.homework = m; });
   }
   function subscribe() {
     if (!ensureClient()) return;
@@ -1082,9 +1151,15 @@ const CloudService = (function () {
         .on("postgres_changes", { event: "*", schema: "public", table: "mmwa_clinic_assignments", filter: "room=eq." + r }, hydrate)
         .on("postgres_changes", { event: "*", schema: "public", table: "mmwa_clinic_work", filter: "room=eq." + r }, hydrate)
         .on("postgres_changes", { event: "*", schema: "public", table: "mmwa_clinic_roster", filter: "room=eq." + r }, hydrate)
+        .on("postgres_changes", { event: "*", schema: "public", table: "mmwa_submissions" }, hydrateData)
+        .on("postgres_changes", { event: "*", schema: "public", table: "mmwa_drafts" }, hydrateData)
+        .on("postgres_changes", { event: "*", schema: "public", table: "mmwa_tokens" }, hydrateData)
+        .on("postgres_changes", { event: "*", schema: "public", table: "mmwa_certificates" }, hydrateData)
+        .on("postgres_changes", { event: "*", schema: "public", table: "mmwa_homework" }, hydrateData)
         .subscribe(function (status) { connected = (status === "SUBSCRIBED"); fireChange(); });
     } catch (e) { /* realtime unavailable */ }
   }
+  function curUid() { var u = (typeof AuthService !== "undefined") && AuthService.current && AuthService.current(); return u ? u.id : null; }
   return {
     available: available,
     getClient: function () { return ensureClient(); },
@@ -1093,6 +1168,7 @@ const CloudService = (function () {
     room: room,
     onChange: function (fn) { changeFns.push(fn); },
     connect: function () { if (!ensureClient()) return false; hydrate(); subscribe(); return true; },
+    refresh: function () { if (ensureClient()) hydrateData(); },
     setRoom: function (name) {
       roomOverride = (name || "").trim();
       try { localStorage.setItem("mmwa.room", roomOverride || (cfg.defaultRoom || "mmwa-main")); } catch (e) {}
@@ -1101,7 +1177,15 @@ const CloudService = (function () {
     upsertAssignment: function (row) { if (!ensureClient()) return; try { client.from("mmwa_clinic_assignments").upsert(row).then(function () {}, function () {}); } catch (e) {} },
     deleteAssignment: function (id) { if (!ensureClient()) return; try { client.from("mmwa_clinic_assignments").delete().eq("id", id).then(function () {}, function () {}); } catch (e) {} },
     upsertWork: function (row) { if (!ensureClient()) return; try { client.from("mmwa_clinic_work").upsert(row, { onConflict: "room,student_key,clinic_index" }).then(function () {}, function () {}); } catch (e) {} },
-    pingRoster: function (row) { if (!ensureClient()) return; try { client.from("mmwa_clinic_roster").upsert(row, { onConflict: "room,student_key" }).then(function () {}, function () {}); } catch (e) {} }
+    pingRoster: function (row) { if (!ensureClient()) return; try { client.from("mmwa_clinic_roster").upsert(row, { onConflict: "room,student_key" }).then(function () {}, function () {}); } catch (e) {} },
+
+    /* Phase 2 generic writers — store the app object as jsonb `data`. */
+    putSubmission: function (sub) { if (!ensureClient() || !sub) return; var uidv = sub.userId || curUid(); try { client.from("mmwa_submissions").upsert({ id: sub.id, user_id: uidv, student_name: (AuthService.byId(uidv) || {}).name || null, data: sub, submitted_at: sub.submittedAt || nowISO(), updated_at: nowISO() }).then(function () {}, function () {}); } catch (e) {} },
+    putDraft: function (id, data) { if (!ensureClient()) return; try { client.from("mmwa_drafts").upsert({ id: id, user_id: curUid(), data: data, updated_at: nowISO() }).then(function () {}, function () {}); } catch (e) {} },
+    putToken: function (userId, data) { if (!ensureClient()) return; try { client.from("mmwa_tokens").upsert({ user_id: userId, data: data, updated_at: nowISO() }).then(function () {}, function () {}); } catch (e) {} },
+    putCertificate: function (cert) { if (!ensureClient() || !cert) return; try { client.from("mmwa_certificates").upsert({ id: cert.id, user_id: cert.userId, data: cert, created_at: cert.createdAt || nowISO() }).then(function () {}, function () {}); } catch (e) {} },
+    putHomework: function (hw) { if (!ensureClient() || !hw) return; try { client.from("mmwa_homework").upsert({ id: hw.id, student_id: hw.studentId, data: hw, created_at: hw.createdAt || nowISO() }).then(function () {}, function () {}); } catch (e) {} },
+    delHomework: function (id) { if (!ensureClient()) return; try { client.from("mmwa_homework").delete().eq("id", id).then(function () {}, function () {}); } catch (e) {} }
   };
 })();
 
@@ -1207,8 +1291,12 @@ const ClinicService = {
    ========================================================================== */
 
 const TokenService = {
+  _raw: function (userId) {
+    if (cloudReady()) { var c = (CloudService.cache.tokens || {})[userId]; if (c) return c; }
+    return StorageService.read().tokens[userId] || null;
+  },
   status: function (userId) {
-    var t = StorageService.read().tokens[userId];
+    var t = this._raw(userId);
     if (!t) return { mode: "open", allowed: 0, used: 0, remaining: Infinity, expiry: "" };
     if (t.mode === "open") return { mode: "open", remaining: Infinity, allowed: 0, used: 0, expiry: t.expiry || "" };
     var remaining = Math.max(0, (t.allowed || 0) - (t.used || 0));
@@ -1216,21 +1304,14 @@ const TokenService = {
     return { mode: "tokens", allowed: t.allowed || 0, used: t.used || 0, remaining: expired ? 0 : remaining, expiry: t.expiry || "", expired: !!expired };
   },
   canStartExam: function (userId) { var s = this.status(userId); return s.mode === "open" || s.remaining > 0; },
+  _commit: function (userId, t) { StorageService.update(function (db) { db.tokens[userId] = t; }); CloudService.putToken(userId, t); },
   grant: function (userId, count, expiry) {
-    StorageService.update(function (db) {
-      var t = db.tokens[userId] || { mode: "open", allowed: 0, used: 0, expiry: "" };
-      t.mode = "tokens"; t.allowed = (t.mode === "tokens" ? t.allowed : 0) + count; t.expiry = expiry || ""; if (typeof t.used !== "number") t.used = 0;
-      db.tokens[userId] = t;
-    });
+    var t = this._raw(userId) || { mode: "open", allowed: 0, used: 0, expiry: "" };
+    this._commit(userId, { mode: "tokens", allowed: (t.mode === "tokens" ? (t.allowed || 0) : 0) + count, used: (t.mode === "tokens" && typeof t.used === "number") ? t.used : 0, expiry: expiry || "" });
   },
-  setOpen: function (userId) { StorageService.update(function (db) { db.tokens[userId] = { mode: "open", allowed: 0, used: 0, expiry: "" }; }); },
-  revoke: function (userId) { StorageService.update(function (db) { db.tokens[userId] = { mode: "tokens", allowed: 0, used: 0, expiry: "" }; }); },
-  consume: function (userId) {
-    StorageService.update(function (db) {
-      var t = db.tokens[userId];
-      if (t && t.mode === "tokens") t.used = (t.used || 0) + 1;
-    });
-  }
+  setOpen: function (userId) { this._commit(userId, { mode: "open", allowed: 0, used: 0, expiry: "" }); },
+  revoke: function (userId) { this._commit(userId, { mode: "tokens", allowed: 0, used: 0, expiry: "" }); },
+  consume: function (userId) { var t = this._raw(userId); if (t && t.mode === "tokens") this._commit(userId, Object.assign({}, t, { used: (t.used || 0) + 1 })); }
 };
 
 /* ==========================================================================
@@ -1247,12 +1328,19 @@ const CertificateService = {
     return Object.keys(ids).length;
   },
   eligible: function (userId) { return this.completedCount(userId) >= CERT_THRESHOLD; },
-  list: function (userId) { return StorageService.read().certificates.filter(function (c) { return !userId || c.userId === userId; }); },
+  list: function (userId) {
+    var local = StorageService.read().certificates.slice();
+    var map = {}; local.forEach(function (c) { map[c.id] = c; });
+    if (cloudReady()) { var cc = CloudService.cache.certs || {}; for (var id in cc) map[id] = cc[id]; }
+    var arr = Object.keys(map).map(function (id) { return map[id]; });
+    return userId ? arr.filter(function (c) { return c.userId === userId; }) : arr;
+  },
   has: function (userId) { return this.list(userId).length > 0; },
   unlock: function (userId, module, by) {
     var user = AuthService.byId(userId);
     var rec = { id: uid("cert"), userId: userId, name: user ? user.name : "Student", module: module || "IELTS Academic Writing Foundations", date: todayLong(), by: by || "Mourad Mekki", createdAt: nowISO() };
     StorageService.update(function (db) { db.certificates.push(rec); });
+    CloudService.putCertificate(rec);
     return rec;
   }
 };
@@ -2668,17 +2756,23 @@ function boot() {
 function refreshLiveViews(msg) {
   var role = AuthService.role();
   if (!role) return;
-  if (role === "teacher" && CURRENT_VIEW === "improvement") {
-    renderImprovementLab();
+  if (role === "teacher") {
+    if (CURRENT_VIEW === "improvement") renderImprovementLab();
+    else if (CURRENT_VIEW === "students") renderStudents();
+    else if (CURRENT_VIEW === "submissions") renderSubmissions();
+    else if (CURRENT_VIEW === "assignments") renderAssignments();
+    else if (CURRENT_VIEW === "dashboard") renderTeacherDash();
+    else if (CURRENT_VIEW === "reports") renderReports();
   }
-  if (role === "student" && CURRENT_VIEW === "clinic") {
-    var u = AuthService.current();
-    // re-render only when this student's assignment set changed, so a teacher's
-    // update never interrupts the student mid-sentence
-    if (u && clinicSignature(clinicKeyFor(u)) !== _clinicSig) renderClinic();
-    else {
-      var conn = el("clinicConn");
-      if (conn) { conn.textContent = ClinicService.cloudOn() ? "\u25cf Connected" : (CloudService.available() ? "\u25cb Connecting\u2026" : "\u25cb Offline (this device only)"); conn.className = "clinic-conn" + (ClinicService.cloudOn() ? " is-live" : ""); }
+  if (role === "student") {
+    if (CURRENT_VIEW === "dashboard") renderStudentDash();
+    else if (CURRENT_VIEW === "clinic") {
+      var u = AuthService.current();
+      if (u && clinicSignature(clinicKeyFor(u)) !== _clinicSig) renderClinic();
+      else {
+        var conn = el("clinicConn");
+        if (conn) { conn.textContent = ClinicService.cloudOn() ? "\u25cf Connected" : (CloudService.available() ? "\u25cb Connecting\u2026" : "\u25cb Offline (this device only)"); conn.className = "clinic-conn" + (ClinicService.cloudOn() ? " is-live" : ""); }
+      }
     }
   }
 }
