@@ -639,7 +639,8 @@ const AuthService = (function () {
     /* supabase-mode methods (return promises) */
     signUp: function (email, password, displayName) {
       var c = sb(); if (!c) return Promise.reject(new Error("Cloud not configured"));
-      return c.auth.signUp({ email: (email || "").trim(), password: password, options: { data: { display_name: (displayName || "").trim() } } });
+      var redirect = (typeof window !== "undefined") ? window.location.href.split("#")[0] : undefined;
+      return c.auth.signUp({ email: (email || "").trim(), password: password, options: { data: { display_name: (displayName || "").trim() }, emailRedirectTo: redirect } });
     },
     signInEmail: function (email, password) {
       var c = sb(); if (!c) return Promise.reject(new Error("Cloud not configured"));
@@ -1083,6 +1084,7 @@ const CloudService = (function () {
   var cfg = (typeof window !== "undefined" && window.MMWA_CONFIG) || {};
   var client = null, connected = false, channel = null, roomOverride = "";
   var cache = { assignments: [], work: {}, roster: {}, students: {}, submissions: {}, drafts: {}, tokens: {}, certs: {}, homework: {} };
+  var _hwBackfillDone = false;
   var changeFns = [];
   function fireChange() { for (var i = 0; i < changeFns.length; i++) { try { changeFns[i](); } catch (e) {} } }
   function available() {
@@ -1140,7 +1142,25 @@ const CloudService = (function () {
     grab("mmwa_drafts", function (rows) { var m = {}; rows.forEach(function (r) { if (r.data) m[r.id] = r.data; }); cache.drafts = m; });
     grab("mmwa_tokens", function (rows) { var m = {}; rows.forEach(function (r) { if (r.data) m[r.user_id] = r.data; }); cache.tokens = m; });
     grab("mmwa_certificates", function (rows) { var m = {}; rows.forEach(function (r) { if (r.data) m[r.id] = r.data; }); cache.certs = m; });
-    grab("mmwa_homework", function (rows) { var m = {}; rows.forEach(function (r) { if (r.data) m[r.id] = r.data; }); cache.homework = m; });
+    grab("mmwa_homework", function (rows) { var m = {}; rows.forEach(function (r) { if (r.data) m[r.id] = r.data; }); cache.homework = m; backfillHomework(); });
+  }
+  /* One-time heal: any teacher-side homework created before cloud sync (the
+     permissions fix) only ever saved to localStorage. On the teacher's device,
+     push anything not yet in the cloud up to mmwa_homework. Idempotent upsert;
+     runs once per session, teacher only. Students skip cheaply (and don't set
+     the flag, so a teacher whose role resolves on a later hydrate still heals). */
+  function backfillHomework() {
+    if (_hwBackfillDone) return;
+    if (!ensureClient()) return;
+    if (!(typeof AuthService !== "undefined" && AuthService.role && AuthService.role() === "teacher")) return;
+    _hwBackfillDone = true;
+    try {
+      var local = (typeof StorageService !== "undefined") ? (StorageService.read().assignments || []) : [];
+      var cloud = cache.homework || {};
+      local.filter(function (a) { return a && a.id && !cloud[a.id]; }).forEach(function (a) {
+        try { client.from("mmwa_homework").upsert({ id: a.id, student_id: a.studentId, data: a, created_at: a.createdAt || nowISO() }).then(function () {}, function () {}); } catch (e) {}
+      });
+    } catch (e) {}
   }
   function subscribe() {
     if (!ensureClient()) return;
