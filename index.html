@@ -49,18 +49,9 @@
         <h1 class="auth-title">Academic Writing Platform</h1>
         <p class="auth-sub">Task 1 &amp; Task 2 coaching — practice, exam mode, diagnostics, and progress, all in one place.</p>
 
-        <div class="auth-card">
-          <label for="authName">Display name</label>
-          <input class="auth-input" id="authName" type="text" placeholder="e.g. Aisha R." autocomplete="off" maxlength="40">
-          <div class="auth-actions">
-            <button class="btn btn-gold" id="authStudentBtn">Enter as student</button>
-            <button class="btn btn-navy" id="authTeacherBtn">Enter as teacher / admin</button>
-          </div>
-          <p class="auth-error" id="authError" role="alert"></p>
-          <p class="auth-roles"><strong>Students</strong> write, get diagnostics and track progress. <strong>Teachers</strong> assign homework, review work, override bands and issue certificates.</p>
-        </div>
+        <div class="auth-card" id="authCard"></div>
 
-        <p class="auth-note">Privacy-first prototype: only a display name is collected — no email, no password, no school data. Your work is saved in this browser (localStorage) until a secure cloud backend is connected.</p>
+        <p class="auth-note" id="authNote"></p>
       </div>
     </section>
 

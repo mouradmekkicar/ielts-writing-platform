@@ -203,6 +203,16 @@ main { position: relative; z-index: 1; }
 .auth-error { color: #f0b4b4; font-size: 0.86rem; margin: 0.8rem 0 0; min-height: 1.2em; }
 .auth-roles { margin-top: 1.2rem; font-size: 0.82rem; color: var(--mist); }
 .auth-roles strong { color: var(--gold-bright); }
+.auth-card label + .auth-input { margin-bottom: 0.85rem; }
+.auth-card .auth-input + label { margin-top: 0.2rem; }
+.auth-error.auth-ok { color: var(--ok-soft); }
+.auth-tabs { display: flex; gap: 0.4rem; margin: -0.3rem 0 1.1rem; border-bottom: 1px solid rgba(201, 169, 97, 0.22); }
+.auth-tab {
+  flex: 1; background: none; border: 0; padding: 0.55rem 0.4rem; font: inherit; font-size: 0.92rem;
+  color: var(--mist); border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.auth-tab.is-active { color: var(--gold-bright); border-bottom-color: var(--gold); font-weight: 600; }
+.auth-link { background: none; border: 0; padding: 0.6rem 0; font: inherit; font-size: 0.82rem; color: var(--gold-bright); text-decoration: underline; }
 .auth-note {
   margin: 1.5rem auto 0; max-width: 480px; font-size: 0.78rem;
   color: rgba(250, 246, 239, 0.55); line-height: 1.5;

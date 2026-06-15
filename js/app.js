@@ -525,40 +525,141 @@ function fmtDate(iso) { return iso ? new Date(iso).toLocaleDateString("en-GB", {
    sign-in with email + password (or magic link). Keep current()/role().
    ========================================================================== */
 
-const AuthService = {
-  current: function () {
-    const db = StorageService.read();
+/* ==========================================================================
+   AUTH SERVICE
+   Two modes, chosen at load:
+     "supabase"  email + password accounts (Supabase Auth). Roles come from a
+                 server-side `profiles` table; teachers are set via the
+                 mmwa_teacher_emails allow-list, so no one can self-promote.
+     "name"      the original name-only prototype sign-in (offline fallback —
+                 used automatically if no cloud is configured, or set
+                 authMode:"name" in config.js to force it).
+   A synchronous cache keeps current()/role() instant for the rest of the app.
+   ========================================================================== */
+var _authModeCache = null;
+function authMode() {
+  if (_authModeCache) return _authModeCache;
+  var cfg = (typeof window !== "undefined" && window.MMWA_CONFIG) || {};
+  if (cfg.authMode === "name") _authModeCache = "name";
+  else if (cfg.authMode === "supabase") _authModeCache = "supabase";
+  else _authModeCache = (typeof CloudService !== "undefined" && CloudService.available && CloudService.available()) ? "supabase" : "name";
+  return _authModeCache;
+}
+
+const AuthService = (function () {
+  var _user = null;   // {id, key, name, email, role}
+  var _ready = false;
+
+  function sb() { return CloudService.getClient ? CloudService.getClient() : null; }
+
+  /* ---- name mode (legacy, local) ---- */
+  function localCurrent() {
+    var db = StorageService.read();
     if (!db.session) return null;
     return db.users.find(function (u) { return u.id === db.session.userId; }) || null;
-  },
-  role: function () { var u = this.current(); return u ? u.role : null; },
-  signIn: function (name, role) {
-    name = (name || "").trim();
-    if (!name) return null;
-    var db = StorageService.read();
-    var existing = db.users.find(function (u) {
-      return u.role === role && u.name.toLowerCase() === name.toLowerCase();
-    });
+  }
+
+  /* ---- supabase mode ---- */
+  function mirrorLocal(u) {
     StorageService.update(function (d) {
-      if (!existing) {
-        existing = { id: uid("u"), name: name, role: role, createdAt: nowISO() };
-        d.users.push(existing);
-        if (role === "student" && !d.tokens[existing.id]) d.tokens[existing.id] = { mode: "open", allowed: 0, used: 0, expiry: "" };
-      }
-      d.session = { userId: existing.id, role: role };
+      var ex = d.users.find(function (x) { return x.id === u.id; });
+      if (!ex) {
+        d.users.push({ id: u.id, name: u.name, role: u.role, email: u.email, createdAt: nowISO() });
+        if (u.role === "student" && !d.tokens[u.id]) d.tokens[u.id] = { mode: "open", allowed: 0, used: 0, expiry: "" };
+      } else { ex.name = u.name; ex.role = u.role; ex.email = u.email; }
+      d.session = { userId: u.id, role: u.role };
     });
-    return AuthService.current();
-  },
-  switchUser: function (userId) {
-    StorageService.update(function (d) {
-      var u = d.users.find(function (x) { return x.id === userId; });
-      if (u) d.session = { userId: u.id, role: u.role };
+  }
+  function loadProfile(authUser) {
+    var c = sb();
+    if (!c || !authUser) { _user = null; return Promise.resolve(); }
+    return c.from("profiles").select("*").eq("id", authUser.id).maybeSingle().then(function (res) {
+      var p = res && res.data;
+      var meta = authUser.user_metadata || {};
+      var name = (p && p.display_name) || meta.display_name || (authUser.email || "").split("@")[0];
+      var role = (p && p.role) || "student";
+      _user = { id: authUser.id, key: authUser.id, name: name, email: authUser.email, role: role };
+      mirrorLocal(_user);
+    }, function () {
+      _user = { id: authUser.id, key: authUser.id, name: (authUser.email || "").split("@")[0], email: authUser.email, role: "student" };
+      mirrorLocal(_user);
     });
-  },
-  signOut: function () { StorageService.update(function (d) { d.session = null; }); },
-  students: function () { return StorageService.read().users.filter(function (u) { return u.role === "student"; }); },
-  byId: function (id) { return StorageService.read().users.find(function (u) { return u.id === id; }) || null; }
-};
+  }
+
+  return {
+    mode: function () { return authMode(); },
+    ready: function () { return _ready; },
+
+    current: function () { return authMode() === "supabase" ? _user : localCurrent(); },
+    role: function () { var u = this.current(); return u ? u.role : null; },
+    students: function () { return StorageService.read().users.filter(function (u) { return u.role === "student"; }); },
+    byId: function (id) {
+      var local = StorageService.read().users.find(function (u) { return u.id === id; });
+      if (local) return local;
+      if (authMode() === "supabase") { var nm = (CloudService.cache.roster || {})[id]; if (nm) return { id: id, name: nm, role: "student" }; }
+      return null;
+    },
+
+    signOut: function () {
+      if (authMode() === "supabase") { var c = sb(); if (c) { try { c.auth.signOut(); } catch (e) {} } _user = null; StorageService.update(function (d) { d.session = null; }); }
+      else { StorageService.update(function (d) { d.session = null; }); }
+    },
+
+    /* name-mode helpers (kept for that mode + "add sample student") */
+    signIn: function (name, role) {
+      name = (name || "").trim();
+      if (!name) return null;
+      var db = StorageService.read();
+      var existing = db.users.find(function (u) { return u.role === role && u.name.toLowerCase() === name.toLowerCase(); });
+      StorageService.update(function (d) {
+        if (!existing) {
+          existing = { id: uid("u"), name: name, role: role, createdAt: nowISO() };
+          d.users.push(existing);
+          if (role === "student" && !d.tokens[existing.id]) d.tokens[existing.id] = { mode: "open", allowed: 0, used: 0, expiry: "" };
+        }
+        d.session = { userId: existing.id, role: role };
+      });
+      return localCurrent();
+    },
+    switchUser: function (userId) {
+      StorageService.update(function (d) { var u = d.users.find(function (x) { return x.id === userId; }); if (u) d.session = { userId: u.id, role: u.role }; });
+    },
+
+    /* supabase-mode methods (return promises) */
+    signUp: function (email, password, displayName) {
+      var c = sb(); if (!c) return Promise.reject(new Error("Cloud not configured"));
+      return c.auth.signUp({ email: (email || "").trim(), password: password, options: { data: { display_name: (displayName || "").trim() } } });
+    },
+    signInEmail: function (email, password) {
+      var c = sb(); if (!c) return Promise.reject(new Error("Cloud not configured"));
+      return c.auth.signInWithPassword({ email: (email || "").trim(), password: password });
+    },
+    resetPassword: function (email) {
+      var c = sb(); if (!c) return Promise.reject(new Error("Cloud not configured"));
+      var redirect = (typeof window !== "undefined") ? window.location.href.split("#")[0] : undefined;
+      return c.auth.resetPasswordForEmail((email || "").trim(), { redirectTo: redirect });
+    },
+    updatePassword: function (newPassword) {
+      var c = sb(); if (!c) return Promise.reject(new Error("Cloud not configured"));
+      return c.auth.updateUser({ password: newPassword });
+    },
+
+    init: function () {
+      if (authMode() !== "supabase") { _ready = true; return Promise.resolve(); }
+      var c = sb();
+      if (!c) { _authModeCache = "name"; _ready = true; return Promise.resolve(); }
+      try {
+        c.auth.onAuthStateChange(function (event, session) {
+          if (event === "PASSWORD_RECOVERY") { window.__mmwaRecovery = true; }
+          var au = session && session.user;
+          var done = function () { _ready = true; boot(); };
+          if (au) loadProfile(au).then(done, done); else { _user = null; done(); }
+        });
+      } catch (e) { _authModeCache = "name"; _ready = true; }
+      return Promise.resolve();
+    }
+  };
+})();
 
 /* ==========================================================================
    TASK SERVICE  — unifies Task 1 missions + Task 2 essays
@@ -920,6 +1021,9 @@ const AssignmentService = {
    tables are missing, every call fails quietly and the app keeps working.
    ========================================================================== */
 function studentKey(name) { return String(name || "").trim().toLowerCase().replace(/\s+/g, " "); }
+/* canonical clinic identity for a user: account uid when signed in with an
+   account, else the normalised display name (name-only fallback mode). */
+function clinicKeyFor(u) { if (!u) return ""; return u.key || (authMode() === "supabase" ? u.id : studentKey(u.name)); }
 
 const CloudService = (function () {
   var cfg = (typeof window !== "undefined" && window.MMWA_CONFIG) || {};
@@ -950,15 +1054,18 @@ const CloudService = (function () {
       Promise.all([
         client.from("mmwa_clinic_assignments").select("*").eq("room", r),
         client.from("mmwa_clinic_work").select("*").eq("room", r),
-        client.from("mmwa_clinic_roster").select("*").eq("room", r)
+        client.from("mmwa_clinic_roster").select("*").eq("room", r),
+        client.from("profiles").select("id,display_name,role").eq("role", "student")
       ]).then(function (res) {
-        var a = res[0] || {}, w = res[1] || {}, ro = res[2] || {};
+        var a = res[0] || {}, w = res[1] || {}, ro = res[2] || {}, pr = res[3] || {};
         if (a.error || w.error || ro.error) { connected = false; fireChange(); return; }
         cache.assignments = a.data || [];
         cache.work = {};
         (w.data || []).forEach(function (row) { cache.work[row.student_key + "::" + row.clinic_index] = row; });
         cache.roster = {};
-        (ro.data || []).forEach(function (row) { cache.roster[row.student_key] = row.student_name; });
+        // students known from their account profiles (lets the teacher target them before they open the clinic)
+        if (!pr.error) (pr.data || []).forEach(function (p) { if (p.id) cache.roster[p.id] = p.display_name || p.id; });
+        (ro.data || []).forEach(function (row) { if (!cache.roster[row.student_key]) cache.roster[row.student_key] = row.student_name; });
         (w.data || []).forEach(function (row) { if (!cache.roster[row.student_key]) cache.roster[row.student_key] = row.student_name; });
         (a.data || []).forEach(function (row) { if (row.student_key !== "*" && row.student_name && !cache.roster[row.student_key]) cache.roster[row.student_key] = row.student_name; });
         connected = true;
@@ -980,6 +1087,7 @@ const CloudService = (function () {
   }
   return {
     available: available,
+    getClient: function () { return ensureClient(); },
     isConnected: function () { return connected; },
     cache: cache,
     room: room,
@@ -1012,7 +1120,8 @@ const ClinicService = {
   /* ---- roster (teacher) : local students ∪ cloud roster ---- */
   roster: function () {
     var map = {};
-    AuthService.students().forEach(function (s) { var k = studentKey(s.name); if (k) map[k] = s.name; });
+    var acct = authMode() === "supabase";
+    AuthService.students().forEach(function (s) { var k = acct ? s.id : studentKey(s.name); if (k) map[k] = s.name; });
     if (this.cloudOn()) { var r = CloudService.cache.roster; for (var k in r) if (!map[k]) map[k] = r[k]; }
     return Object.keys(map).map(function (k) { return { key: k, name: map[k] }; })
       .sort(function (a, b) { return a.name.localeCompare(b.name); });
@@ -1214,6 +1323,7 @@ const AnalyticsService = {
 function seedIfNeeded() {
   var db = StorageService.read();
   if (db.seeded) return;
+  if (authMode() === "supabase") { StorageService.update(function (d) { d.seeded = true; }); return; }
   var samples = [
     { name: "Aisha Rahman", taskId: "t1-bar", mode: "exam", text: "The bar chart compares the number of international students from five countries studying in Canada in 2005 and 2020.\n\nOverall, every country sent more students in 2020 than in 2005. China and India were the leading sources throughout the period, while Nigeria showed the fastest growth in relative terms.\n\nIn 2005, China led with 45,000 students, followed by India with 30,000. By 2020 these figures had risen to 80,000 and 70,000 respectively, so the gap between them narrowed considerably.\n\nThe other three countries supplied smaller numbers. The USA increased from 25,000 to 35,000 and Brazil from 15,000 to 25,000, whereas Nigeria tripled from 10,000 to 30,000, overtaking Brazil by the end of the period." },
     { name: "Mohammed Saleh", taskId: "t2-opinion", mode: "practice", text: "Nowadays a lot of people change jobs frequently. I think changing jobs is good because you get more experience.\n\nFirstly, changing jobs is good. You learn new things. Moreover it is good for money. Furthermore you meet new people and this is good too.\n\nIn conclusion changing jobs is really good and everyone should do it." },
@@ -1337,22 +1447,87 @@ document.addEventListener("click", function (e) {
    AUTH SCREEN
    ========================================================================== */
 
-function renderAuth() {
-  el("authError").textContent = "";
+function authMsg(text, isError) {
+  var m = el("authError");
+  if (m) { m.textContent = text || ""; m.classList.toggle("auth-ok", !isError && !!text); }
 }
-on(el("authStudentBtn"), "click", function () {
-  var name = el("authName").value.trim();
-  if (!name) { el("authError").textContent = "Please enter a display name to continue."; return; }
-  AuthService.signIn(name, "student");
-  boot();
-});
-on(el("authTeacherBtn"), "click", function () {
-  var name = el("authName").value.trim();
-  if (!name) { el("authError").textContent = "Please enter a display name to continue."; return; }
-  AuthService.signIn(name, "teacher");
-  boot();
-});
-on(el("authName"), "keydown", function (e) { if (e.key === "Enter") el("authStudentBtn").click(); });
+var _authTab = "signin";
+function renderAuth() {
+  var card = el("authCard"); if (!card) return;
+  var note = el("authNote");
+
+  if (authMode() !== "supabase") {
+    card.innerHTML =
+      '<label for="authName">Display name</label>' +
+      '<input class="auth-input" id="authName" type="text" placeholder="e.g. Aisha R." autocomplete="off" maxlength="40">' +
+      '<div class="auth-actions">' +
+        '<button class="btn btn-gold" id="authStudentBtn">Enter as student</button>' +
+        '<button class="btn btn-navy" id="authTeacherBtn">Enter as teacher / admin</button>' +
+      '</div>' +
+      '<p class="auth-error" id="authError" role="alert"></p>' +
+      '<p class="auth-roles"><strong>Students</strong> write and track progress. <strong>Teachers</strong> assign work, review and issue certificates.</p>';
+    if (note) note.textContent = "Offline mode: only a display name is collected, saved in this browser. Connect a cloud project to switch on secure email accounts.";
+    on(el("authStudentBtn"), "click", function () { var n = el("authName").value.trim(); if (!n) { authMsg("Please enter a display name to continue.", true); return; } AuthService.signIn(n, "student"); boot(); });
+    on(el("authTeacherBtn"), "click", function () { var n = el("authName").value.trim(); if (!n) { authMsg("Please enter a display name to continue.", true); return; } AuthService.signIn(n, "teacher"); boot(); });
+    on(el("authName"), "keydown", function (e) { if (e.key === "Enter") el("authStudentBtn").click(); });
+    return;
+  }
+
+  // ---- account mode ----
+  var signin = _authTab === "signin";
+  card.innerHTML =
+    '<div class="auth-tabs">' +
+      '<button class="auth-tab' + (signin ? " is-active" : "") + '" data-auth-tab="signin">Sign in</button>' +
+      '<button class="auth-tab' + (!signin ? " is-active" : "") + '" data-auth-tab="signup">Create account</button>' +
+    '</div>' +
+    (signin
+      ? '<label for="authEmail">Email</label><input class="auth-input" id="authEmail" type="email" autocomplete="username" placeholder="you@example.com">' +
+        '<label for="authPass">Password</label><input class="auth-input" id="authPass" type="password" autocomplete="current-password" placeholder="Your password">' +
+        '<div class="auth-actions"><button class="btn btn-gold" id="authSignIn">Sign in</button></div>' +
+        '<button class="auth-link" id="authForgot" type="button">Forgot password?</button>'
+      : '<label for="authName">Display name</label><input class="auth-input" id="authName" type="text" maxlength="40" placeholder="e.g. Aisha R.">' +
+        '<label for="authEmail">Email</label><input class="auth-input" id="authEmail" type="email" autocomplete="username" placeholder="you@example.com">' +
+        '<label for="authPass">Password</label><input class="auth-input" id="authPass" type="password" autocomplete="new-password" placeholder="Choose a password (min 6 characters)">' +
+        '<div class="auth-actions"><button class="btn btn-gold" id="authSignUp">Create account</button></div>') +
+    '<p class="auth-error" id="authError" role="alert"></p>' +
+    '<p class="auth-roles">Students create an account here. <strong>Teacher/admin access</strong> is granted by the instructor — it cannot be self-selected.</p>';
+  if (note) note.textContent = "Secure sign-in: your email and password are managed by the cloud provider; only your display name is shown to your teacher.";
+
+  $all("[data-auth-tab]").forEach(function (b) { on(b, "click", function () { _authTab = b.dataset.authTab; renderAuth(); }); });
+
+  on(el("authSignIn"), "click", function () {
+    var email = el("authEmail").value, pass = el("authPass").value;
+    if (!email || !pass) { authMsg("Enter your email and password.", true); return; }
+    authMsg("Signing in…");
+    AuthService.signInEmail(email, pass).then(function (res) {
+      if (res && res.error) authMsg(res.error.message || "Sign-in failed.", true);
+      // success → onAuthStateChange reboots the app
+    }, function (e) { authMsg((e && e.message) || "Sign-in failed.", true); });
+  });
+  on(el("authSignUp"), "click", function () {
+    var name = (el("authName").value || "").trim(), email = el("authEmail").value, pass = el("authPass").value;
+    if (!name) { authMsg("Please enter a display name.", true); return; }
+    if (!email || !pass) { authMsg("Enter an email and password.", true); return; }
+    if (pass.length < 6) { authMsg("Password must be at least 6 characters.", true); return; }
+    authMsg("Creating your account…");
+    AuthService.signUp(email, pass, name).then(function (res) {
+      if (res && res.error) { authMsg(res.error.message || "Sign-up failed.", true); return; }
+      if (res && res.data && res.data.session) authMsg("Account created — signing you in…");
+      else authMsg("Account created. Check your email to confirm, then sign in.");
+    }, function (e) { authMsg((e && e.message) || "Sign-up failed.", true); });
+  });
+  on(el("authForgot"), "click", function () {
+    var email = (el("authEmail").value || "").trim();
+    if (!email) { authMsg("Enter your email above first, then tap Forgot password.", true); return; }
+    authMsg("Sending reset link…");
+    AuthService.resetPassword(email).then(function (res) {
+      if (res && res.error) authMsg(res.error.message || "Could not send reset link.", true);
+      else authMsg("If that email has an account, a reset link is on its way.");
+    }, function (e) { authMsg((e && e.message) || "Could not send reset link.", true); });
+  });
+  on(el("authEmail"), "keydown", function (e) { if (e.key === "Enter") { var b = el("authSignIn") || el("authSignUp"); if (b) b.click(); } });
+  on(el("authPass"), "keydown", function (e) { if (e.key === "Enter") { var b = el("authSignIn") || el("authSignUp"); if (b) b.click(); } });
+}
 
 /* ==========================================================================
    MODE BADGE helper
@@ -1871,7 +2046,7 @@ function clinicSignature(key) {
 function renderClinic() {
   var user = AuthService.current();
   if (!user) return;
-  var key = studentKey(user.name);
+  var key = clinicKeyFor(user);
   // room (class code) control
   var rin = el("clinicRoom"); if (rin && !rin.value) rin.value = CloudService.room();
   if (rin && !rin.dataset.bound) { rin.dataset.bound = "1"; on(rin, "change", function () { CloudService.setRoom(this.value); renderClinic(); }); }
@@ -1900,7 +2075,7 @@ document.addEventListener("click", function (e) {
   btn.textContent = open ? "Hide the suggested fix" : "Show a suggested fix";
   if (open && AuthService.role() === "student") {
     var u = AuthService.current();
-    var key = u ? studentKey(u.name) : "";
+    var key = u ? clinicKeyFor(u) : "";
     if (u && ClinicService.assignmentFor(key, Number(i))) ClinicService.saveWork(key, u.name, Number(i), { revealed: true });
   }
 });
@@ -1912,7 +2087,7 @@ document.addEventListener("input", function (e) {
   var i = Number(ta.dataset.clinicInput);
   var u = AuthService.current();
   if (!u) return;
-  var key = studentKey(u.name);
+  var key = clinicKeyFor(u);
   clearTimeout(_clinicType[i]);
   var val = ta.value;
   _clinicType[i] = setTimeout(function () {
@@ -1929,7 +2104,7 @@ document.addEventListener("click", function (e) {
   var i = Number(b.dataset.clinicSubmit);
   var u = AuthService.current();
   if (!u) return;
-  var key = studentKey(u.name);
+  var key = clinicKeyFor(u);
   var ta = document.querySelector('[data-clinic-input="' + i + '"]');
   var val = ta ? ta.value : "";
   if (!val.trim()) { var s0 = el("clinicStatus" + i); if (s0) s0.textContent = "Write your answer before submitting."; return; }
@@ -1944,7 +2119,7 @@ document.addEventListener("click", function (e) {
   var i = Number(b.dataset.clinicUnlock);
   var u = AuthService.current();
   if (!u) return;
-  var key = studentKey(u.name);
+  var key = clinicKeyFor(u);
   var input = document.querySelector('[data-clinic-code="' + i + '"]');
   var code = (input ? input.value : "").trim();
   var asg = ClinicService.assignmentFor(key, i);
@@ -2468,11 +2643,21 @@ function closeModal() { if (modal.hidden) return; modal.hidden = true; if (lastF
 /* ==========================================================================
    BOOT
    ========================================================================== */
+function handlePasswordRecovery() {
+  window.__mmwaRecovery = false;
+  var np = window.prompt("Set a new password (at least 6 characters):");
+  if (np && np.length >= 6) {
+    AuthService.updatePassword(np).then(function (res) {
+      alert((res && res.error) ? ("Could not update password: " + res.error.message) : "Password updated — you're signed in.");
+    }, function () { alert("Could not update password."); });
+  }
+}
 function boot() {
   CloudService.connect();
   seedIfNeeded();
   renderNav();
   populateLibraryTypes();
+  if (window.__mmwaRecovery && authMode() === "supabase") handlePasswordRecovery();
   if (AuthService.role()) showView("dashboard"); else { renderAuth(); showView("auth"); }
 }
 
@@ -2490,7 +2675,7 @@ function refreshLiveViews(msg) {
     var u = AuthService.current();
     // re-render only when this student's assignment set changed, so a teacher's
     // update never interrupts the student mid-sentence
-    if (u && clinicSignature(studentKey(u.name)) !== _clinicSig) renderClinic();
+    if (u && clinicSignature(clinicKeyFor(u)) !== _clinicSig) renderClinic();
     else {
       var conn = el("clinicConn");
       if (conn) { conn.textContent = ClinicService.cloudOn() ? "\u25cf Connected" : (CloudService.available() ? "\u25cb Connecting\u2026" : "\u25cb Offline (this device only)"); conn.className = "clinic-conn" + (ClinicService.cloudOn() ? " is-live" : ""); }
@@ -2505,4 +2690,13 @@ on(el("modalClose"), "click", closeModal);
 document.addEventListener("click", function (e) { if (e.target.closest("[data-close-modal]")) closeModal(); });
 document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeModal(); });
 
-boot();
+if (authMode() === "supabase") {
+  // show the sign-in screen immediately; AuthService.init() reboots the app
+  // once Supabase resolves the session (or confirms there isn't one)
+  renderNav();
+  renderAuth();
+  showView("auth");
+  AuthService.init();
+} else {
+  boot();
+}
