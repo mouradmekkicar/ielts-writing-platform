@@ -2219,6 +2219,11 @@ function countWords(text) {
   return m ? m.length : 0;
 }
 function canonTypeKey(s) { return String(s == null ? "" : s).trim().replace(/\s+/g, " ").toLowerCase(); }
+function pdfName(parts) {
+  var name = parts.map(function (p) { return String(p == null ? "" : p).replace(/[\\\/:*?"<>|]+/g, "").replace(/\s+/g, " ").trim(); })
+    .filter(Boolean).join(" \u2014 ").slice(0, 120);
+  return name || "IELTS with Mourad";
+}
 function esc(s) {
   return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
@@ -2230,7 +2235,7 @@ function fmtTime(sec) { var m = Math.floor(sec / 60), s = sec % 60; return m + "
 
 var NAV = {
   student: [["dashboard", "Dashboard"], ["intro", "Introduction"], ["task1", "Task 1"], ["task2", "Task 2"], ["clinic", "Writing Clinic"], ["vocab", "Vocabulary Games"], ["paraphrase", "Task 1 Paraphrasing"], ["library", "Library"], ["reports", "Reports"]],
-  teacher: [["dashboard", "Dashboard"], ["intro", "Introduction"], ["students", "Students"], ["assignments", "Assignments"], ["improvement", "Improvement Lab"], ["submissions", "Submissions"], ["vocab", "Vocabulary Games"], ["paraphrase", "Task 1 Paraphrasing"], ["library", "Library"], ["reports", "Reports"]]
+  teacher: [["dashboard", "Dashboard"], ["intro", "Introduction"], ["students", "Students"], ["assignments", "Assignments"], ["improvement", "Improvement Lab"], ["submissions", "Submissions"], ["vocab", "Vocabulary Games"], ["paraphrase", "Task 1 Paraphrasing"], ["library", "Library"], ["printcenter", "Print Center"], ["reports", "Reports"]]
 };
 
 function renderNav() {
@@ -2251,7 +2256,7 @@ function showView(name) {
   var role = AuthService.role();
   if (!role) name = "auth";
   // gate teacher-only / student-only
-  var teacherOnly = { students: 1, assignments: 1, improvement: 1, submissions: 1, detail: 1 };
+  var teacherOnly = { students: 1, assignments: 1, improvement: 1, submissions: 1, detail: 1, printcenter: 1 };
   var studentOnly = { task1: 1, task2: 1, clinic: 1, workspace: 1 };
   if (role === "student" && teacherOnly[name]) name = "dashboard";
   if (role === "teacher" && studentOnly[name]) name = "dashboard";
@@ -2285,6 +2290,7 @@ function showView(name) {
   if (name === "assignments") renderAssignments();
   if (name === "improvement") renderImprovementLab();
   if (name === "submissions") renderSubmissions();
+  if (name === "printcenter") PrintCenter.render();
   if (name === "vocab" && window.MMWA_TRAINING) window.MMWA_TRAINING.renderVocab(el("view-vocab"), AuthService.current());
   if (name === "paraphrase" && window.MMWA_TRAINING) window.MMWA_TRAINING.renderParaphrase(el("view-paraphrase"), AuthService.current());
 }
@@ -3715,8 +3721,10 @@ var ReportService = {
 
     document.body.classList.add("printing-report");
     el("printReport").setAttribute("aria-hidden", "false");
+    var _prevTitle = document.title;
+    document.title = pdfName([o.student, "Task " + (t1 ? "1" : "2") + " " + o.task.type, (titleMap[o.reportType] || "Writing Report"), "IELTS with Mourad"]);
     window.print();
-    setTimeout(function () { document.body.classList.remove("printing-report"); el("printReport").setAttribute("aria-hidden", "true"); }, 300);
+    setTimeout(function () { document.body.classList.remove("printing-report"); el("printReport").setAttribute("aria-hidden", "true"); document.title = _prevTitle; }, 300);
   }
 };
 
@@ -3731,8 +3739,10 @@ function printCertificateFor(userId) {
   el("certDate").textContent = todayLong();
   document.body.classList.add("printing-cert");
   el("certificate").setAttribute("aria-hidden", "false");
+  var _prevCertTitle = document.title;
+  document.title = pdfName([user.name, "Certificate of Completion", "IELTS with Mourad"]);
   window.print();
-  setTimeout(function () { document.body.classList.remove("printing-cert"); el("certificate").setAttribute("aria-hidden", "true"); }, 300);
+  setTimeout(function () { document.body.classList.remove("printing-cert"); el("certificate").setAttribute("aria-hidden", "true"); document.title = _prevCertTitle; }, 300);
 }
 document.addEventListener("click", function (e) {
   var v = e.target.closest("[data-view-cert]");
@@ -3816,3 +3826,502 @@ if (authMode() === "supabase") {
 } else {
   boot();
 }
+
+/* ==========================================================================
+   PRINT & PDF RESOURCE CENTER  (teacher/admin)
+   --------------------------------------------------------------------------
+   A scalable, branded A4 print/booklet system. It introspects the platform's
+   real resources (Task 1 lessons, Task 2 guides, vocabulary banks, paraphrasing
+   practice, the writing clinic, and the shared writing guides) into a registry,
+   then renders single resources, multi-resource booklets, a cover page and a
+   table of contents — all honouring teacher-chosen options. Reusable pieces:
+     getPrintableResources(), renderPrintResource(), renderPrintCoverPage(),
+     renderTableOfContents(), renderPrintBooklet(), openPrintPreview(),
+     printSelectedResources().
+   Nothing here touches student tools, AI feedback, games, reports or progress.
+   ========================================================================== */
+var PrintCenter = (function () {
+  var _sel = {};          // selected resource ids
+  var _q = "";            // search text
+  var _cat = "";          // category filter
+  var _registry = null;   // built lazily
+  var _opts = {
+    cover: true, toc: true, answerKeys: false, modelAnswers: true,
+    teacherNotes: true, practiceBoxes: true, compact: false, bw: false, nameFields: true,
+    coverTitle: "IELTS Academic Writing — Resource Booklet", coverSubtitle: "Selected practice & reference materials",
+    student: "", klass: "", date: ""
+  };
+
+  /* ---------- small render helpers (booklet body fragments) ---------- */
+  function bkList(label, arr) {
+    if (!arr || !arr.length) return "";
+    return '<div class="bk-block avoid-break"><h3 class="bk-h">' + esc(label) + '</h3><ul class="bk-ul">' +
+      arr.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul></div>";
+  }
+  function bkChips(label, arr) {
+    if (!arr || !arr.length) return "";
+    return '<div class="bk-block avoid-break"><h3 class="bk-h">' + esc(label) + '</h3><p class="bk-chips">' +
+      arr.map(function (x) { return '<span class="bk-chip">' + esc(x) + "</span>"; }).join("") + "</p></div>";
+  }
+  function bkNote(label, html) {
+    if (!html) return "";
+    return '<div class="bk-note avoid-break"><span class="bk-note-label">' + esc(label) + "</span>" + html + "</div>";
+  }
+  function bkSection(title, rawHtml) {
+    return '<div class="bk-block avoid-break"><h3 class="bk-h">' + esc(title) + "</h3>" + rawHtml + "</div>";
+  }
+  function bkPractice(label, minWords) {
+    var lines = "";
+    for (var i = 0; i < 12; i++) lines += '<span class="bk-line"></span>';
+    return '<div class="bk-practice"><h3 class="bk-h">' + esc(label) + ' <span class="bk-target">(write at least ' + minWords + ' words)</span></h3>' +
+      '<div class="bk-lines">' + lines + "</div></div>";
+  }
+  function bkModel(label, paras) {
+    if (!paras || !paras.length) return "";
+    return '<div class="bk-model avoid-break"><h3 class="bk-h">' + esc(label) + "</h3>" +
+      paras.map(function (p) { return "<p>" + esc(p) + "</p>"; }).join("") + "</div>";
+  }
+  function bkAnswer(label, html) {
+    return '<div class="bk-answer avoid-break"><span class="bk-answer-label">' + esc(label) + "</span>" + html + "</div>";
+  }
+  function bkNameRow(o) {
+    return '<div class="bk-namerow">' +
+      '<span>Name: <b>' + (o.student ? esc(o.student) : "") + "</b></span>" +
+      '<span>Class: <b>' + (o.klass ? esc(o.klass) : "") + "</b></span>" +
+      '<span>Date: <b>' + (o.date ? esc(o.date) : "") + "</b></span></div>";
+  }
+  function arr(x) { return Array.isArray(x) ? x : []; }
+  function firstText() { for (var i = 0; i < arguments.length; i++) { if (typeof arguments[i] === "string" && arguments[i]) return arguments[i]; } return ""; }
+
+  /* ---------- registry ---------- */
+  function getPrintableResources() {
+    if (_registry) return _registry;
+    var R = [];
+
+    // Task 1 lessons (one per mission) — prompt, chart, guidance, vocab, practice, model
+    arr(typeof MISSIONS !== "undefined" && MISSIONS).forEach(function (m) {
+      R.push({
+        id: "t1-" + m.id, title: m.title, category: "Task 1", type: "Lesson + Practice", level: m.difficulty || "",
+        includes: { worksheet: true, answerKey: false, modelAnswer: !!(m.model && m.model.length), teacherNotes: !!(m.learn), chart: !!m.img, vocab: !!(m.vocab && m.vocab.length) },
+        pages: 2,
+        render: function (o) {
+          var h = '<p class="bk-prompt">' + esc(m.prompt) + "</p>";
+          if (m.img) h += '<figure class="bk-figure avoid-break"><img class="bk-img" src="' + m.img + '" alt="' + esc(m.alt || "") + '"></figure>';
+          if (o.teacherNotes) h += bkNote("What to know", esc(m.learn || "") + (m.tip ? " <em>" + esc(m.tip) + "</em>" : ""));
+          h += bkList("Key features to notice", m.analyse);
+          h += bkList("Suggested structure", m.plan);
+          h += bkChips("Useful vocabulary", m.vocab);
+          if (o.practiceBoxes) h += bkPractice("Your report", 150);
+          if (o.modelAnswers) h += bkModel("Model answer", m.model);
+          return h;
+        }
+      });
+    });
+
+    // Task 1 writing guide (shared helpers)
+    if (typeof T1_SHARED_HELPERS !== "undefined" && T1_SHARED_HELPERS.length) {
+      R.push({
+        id: "guide-t1", title: "Task 1 — Writing Guide", category: "Guides", type: "Reference", level: "All bands",
+        includes: { worksheet: false, answerKey: false, modelAnswer: false, teacherNotes: true, chart: false, vocab: false },
+        pages: 2,
+        render: function () { return T1_SHARED_HELPERS.map(function (x) { return bkSection(x.title, x.html); }).join(""); }
+      });
+    }
+
+    // Task 2 essay guides (one per type)
+    arr(typeof T2_TYPES !== "undefined" && T2_TYPES).forEach(function (t) {
+      R.push({
+        id: "t2-" + t.id, title: t.title || t.type, category: "Task 2", type: "Essay Guide + Practice", level: t.difficulty || "",
+        includes: { worksheet: true, answerKey: false, modelAnswer: !!(t.model && t.model.length), teacherNotes: !!(t.thesis || (t.mistakes && t.mistakes.length)), chart: false, vocab: !!(t.language && t.language.length) },
+        pages: 2,
+        render: function (o) {
+          var h = '<p class="bk-prompt">' + esc(t.prompt) + "</p>";
+          h += bkList("Structure", t.structure);
+          if (o.teacherNotes) h += bkNote("Thesis guidance", esc(t.thesis || ""));
+          if (o.teacherNotes) h += bkList("Common mistakes for this type", t.mistakes);
+          h += bkChips("Useful academic language", t.language);
+          if (o.practiceBoxes) h += bkPractice("Your essay", 250);
+          if (o.modelAnswers) h += bkModel("Model essay", t.model);
+          return h;
+        }
+      });
+    });
+
+    // Task 2 writing guide (shared helpers)
+    if (typeof T2_SHARED_HELPERS !== "undefined" && T2_SHARED_HELPERS.length) {
+      R.push({
+        id: "guide-t2", title: "Task 2 — Writing Guide", category: "Guides", type: "Reference", level: "All bands",
+        includes: { worksheet: false, answerKey: false, modelAnswer: false, teacherNotes: true, chart: false, vocab: false },
+        pages: 2,
+        render: function () { return T2_SHARED_HELPERS.map(function (x) { return bkSection(x.title, x.html); }).join(""); }
+      });
+    }
+
+    // Vocabulary banks (from the games word banks)
+    var V = (typeof window !== "undefined" && window.MMWA_VOCAB) || {};
+    function vocabResource(id, title, items) {
+      if (!items || !items.length) return;
+      R.push({
+        id: id, title: title, category: "Vocabulary", type: "Word List", level: "Band 6–8",
+        includes: { worksheet: true, answerKey: true, modelAnswer: false, teacherNotes: false, chart: false, vocab: true },
+        pages: Math.max(1, Math.ceil(items.length / 22)),
+        render: function (o) {
+          var rows = items.map(function (it) {
+            var ans = o.answerKeys ? esc(it.answer || "") : '<span class="bk-blank"></span>';
+            var note = (o.answerKeys && it.explanation) ? esc(it.explanation) : "";
+            return "<tr><td>" + esc(it.word || "") + "</td><td>" + ans + "</td><td>" + note + "</td></tr>";
+          }).join("");
+          return '<table class="bk-table"><thead><tr><th>Word</th><th>' + (o.answerKeys ? "Best answer" : "Your answer") + "</th><th>Note</th></tr></thead><tbody>" + rows + "</tbody></table>";
+        }
+      });
+    }
+    vocabResource("vocab-synonyms", "Synonyms & Opposites — Word List", V.synonym);
+    vocabResource("vocab-spelling", "Academic Spelling — Word List", V.spelling);
+    vocabResource("vocab-upgrade", "Academic Upgrades — Word List", V.upgrade);
+
+    // Task 1 paraphrasing practice
+    var P = (typeof window !== "undefined" && window.MMWA_PARA) || {};
+    function paraResource(id, title, items) {
+      if (!items || !items.length) return;
+      R.push({
+        id: id, title: title, category: "Paraphrasing", type: "Practice Set", level: "Band 6–8",
+        includes: { worksheet: true, answerKey: true, modelAnswer: true, teacherNotes: false, chart: false, vocab: false },
+        pages: Math.max(1, Math.ceil(items.length / 4)),
+        render: function (o) {
+          return items.map(function (it, i) {
+            var src = firstText(it.originalPrompt, it.prompt, it.weakParaphrase);
+            var model = firstText(it.modelAnswer, it.model, it.answer, it.modelSentence);
+            var h = '<div class="bk-qitem avoid-break"><p class="bk-qnum">' + (i + 1) + ". " + esc(src) + "</p>";
+            if (o.practiceBoxes) h += '<div class="bk-lines"><span class="bk-line"></span><span class="bk-line"></span></div>';
+            if (o.answerKeys && model) h += bkAnswer("Model answer", "<p>" + esc(model) + "</p>");
+            return h + "</div>";
+          }).join("");
+        }
+      });
+    }
+    paraResource("para-write", "Paraphrasing — Write your own", P.write);
+    paraResource("para-fix", "Paraphrasing — Fix the weak version", P.fix);
+    paraResource("para-build", "Paraphrasing — Build the sentence", P.build);
+
+    // Writing clinic correction pack
+    var C = (typeof CLINIC !== "undefined" && CLINIC) || [];
+    if (C.length) {
+      R.push({
+        id: "clinic-pack", title: "Writing Clinic — Correction Pack", category: "Writing Clinic", type: "Correction & Practice", level: "All bands",
+        includes: { worksheet: true, answerKey: true, modelAnswer: true, teacherNotes: true, chart: false, vocab: false },
+        pages: Math.max(2, Math.ceil(C.length / 2)),
+        render: function (o) {
+          return C.map(function (c, i) {
+            var h = '<div class="bk-qitem avoid-break"><p class="bk-qnum">' + (i + 1) + ". " + esc(c.title) + "</p>";
+            if (o.teacherNotes && c.problem) h += '<p class="bk-clinic-problem">' + esc(c.problem) + "</p>";
+            if (c.weak) h += '<p class="bk-weak"><span class="bk-tag bk-tag-bad">Weak</span> ' + esc(c.weak) + "</p>";
+            if (o.modelAnswers && c.better) h += '<p class="bk-better"><span class="bk-tag bk-tag-good">Better</span> ' + esc(c.better) + "</p>";
+            if (o.teacherNotes && c.tip) h += '<p class="bk-tip">' + esc(c.tip) + "</p>";
+            if (c.practice) { h += '<p class="bk-task"><b>Your turn:</b> ' + esc(c.practice) + "</p>"; if (o.practiceBoxes) h += '<div class="bk-lines"><span class="bk-line"></span><span class="bk-line"></span></div>'; }
+            if (o.answerKeys && c.suggested) h += bkAnswer("Suggested answer", "<p>" + esc(c.suggested) + "</p>");
+            return h + "</div>";
+          }).join("");
+        }
+      });
+    }
+
+    _registry = R;
+    return R;
+  }
+
+  function byId(id) { return getPrintableResources().filter(function (r) { return r.id === id; })[0] || null; }
+  function categories() {
+    var seen = {}, out = [];
+    getPrintableResources().forEach(function (r) { if (!seen[r.category]) { seen[r.category] = 1; out.push(r.category); } });
+    return out;
+  }
+
+  /* ---------- print pages ---------- */
+  function renderPrintCoverPage(o) {
+    return '<section class="bk-page bk-cover">' +
+      '<div class="bk-cover-frame">' +
+        '<p class="bk-cover-kicker">IELTS with Mourad — Academic Writing</p>' +
+        '<div class="bk-cover-mid">' +
+          '<h1 class="bk-cover-title">' + esc(o.coverTitle || "Resource Booklet") + "</h1>" +
+          (o.coverSubtitle ? '<p class="bk-cover-subtitle">' + esc(o.coverSubtitle) + "</p>" : "") +
+          '<div class="bk-cover-rule"></div>' +
+        "</div>" +
+        '<div class="bk-cover-meta">' +
+          "<div><span>Teacher</span><b>Mourad Mekki</b></div>" +
+          "<div><span>Student</span><b>" + (o.student ? esc(o.student) : "&nbsp;") + "</b></div>" +
+          "<div><span>Class / Group</span><b>" + (o.klass ? esc(o.klass) : "&nbsp;") + "</b></div>" +
+          "<div><span>Date</span><b>" + (o.date ? esc(o.date) : todayLong()) + "</b></div>" +
+        "</div>" +
+        '<p class="bk-cover-foot">Academic Writing · Premium Coaching Material</p>' +
+      "</div></section>";
+  }
+
+  function renderTableOfContents(resources, o) {
+    var start = 1 + (o.cover ? 1 : 0) + 1; // pages after cover + toc
+    var groups = {}, order = [];
+    resources.forEach(function (r) { if (!groups[r.category]) { groups[r.category] = []; order.push(r.category); } groups[r.category].push(r); });
+    var page = start, body = "";
+    order.forEach(function (cat) {
+      body += '<li class="bk-toc-cat">' + esc(cat) + "</li>";
+      groups[cat].forEach(function (r) {
+        body += '<li class="bk-toc-item"><span class="bk-toc-t">' + esc(r.title) + '</span><span class="bk-toc-dots"></span><span class="bk-toc-p">p. ' + page + "</span></li>";
+        page += Math.max(1, r.pages || 1);
+      });
+    });
+    return '<section class="bk-page bk-toc"><header class="bk-head"><div class="bk-head-l"><span class="bk-cat">Contents</span>' +
+      '<h2 class="bk-title">' + esc(o.coverTitle || "Resource Booklet") + "</h2></div>" +
+      '<div class="bk-head-r"><span class="bk-brand-mini">IELTS <em>with</em> MOURAD</span></div></header>' +
+      '<ol class="bk-toc-list">' + body + "</ol></section>";
+  }
+
+  function renderSectionDivider(cat) {
+    return '<section class="bk-page bk-divider"><div class="bk-divider-inner"><span class="bk-cover-kicker">IELTS with Mourad — Academic Writing</span>' +
+      '<h2 class="bk-divider-title">' + esc(cat) + '</h2><div class="bk-cover-rule"></div></div></section>';
+  }
+
+  function renderPrintResource(r, o) {
+    return '<section class="bk-page bk-resource">' +
+      '<header class="bk-head">' +
+        '<div class="bk-head-l"><span class="bk-cat">' + esc(r.category) + "</span>" +
+          '<h2 class="bk-title">' + esc(r.title) + "</h2>" +
+          '<p class="bk-sub">' + esc(r.type) + (r.level ? " · " + esc(r.level) : "") + "</p></div>" +
+        '<div class="bk-head-r"><span class="bk-brand-mini">IELTS <em>with</em> MOURAD</span><span class="bk-brand-sub">Academic Writing</span></div>' +
+      "</header>" +
+      (o.nameFields ? bkNameRow(o) : "") +
+      '<div class="bk-body">' + r.render(o) + "</div></section>";
+  }
+
+  function renderPrintBooklet(resources, o) {
+    var pages = "";
+    var multi = resources.length > 1;
+    if (o.cover && multi) pages += renderPrintCoverPage(o);
+    if (o.toc && multi) pages += renderTableOfContents(resources, o);
+    var lastCat = null;
+    resources.forEach(function (r) {
+      if (o.cover && multi && r.category !== lastCat && categories().length > 1) { pages += renderSectionDivider(r.category); lastCat = r.category; }
+      pages += renderPrintResource(r, o);
+    });
+    var rootCls = "bk-root" + (o.compact ? " bk-compact" : "") + (o.bw ? " bk-bw" : "");
+    return '<div class="' + rootCls + '">' + pages + '<div class="bk-runningfoot">IELTS with Mourad — Academic Writing · Instructor: Mourad Mekki</div></div>';
+  }
+
+  /* ---------- option + selection state ---------- */
+  function readOptions() {
+    function chk(id) { var n = el(id); return n ? n.checked : _opts[id]; }
+    return {
+      cover: chk("pcCover"), toc: chk("pcToc"), answerKeys: chk("pcAnswers"), modelAnswers: chk("pcModels"),
+      teacherNotes: chk("pcNotes"), practiceBoxes: chk("pcPractice"), compact: chk("pcCompact"), bw: chk("pcBw"), nameFields: chk("pcNames"),
+      coverTitle: (el("pcTitle") && el("pcTitle").value) || _opts.coverTitle,
+      coverSubtitle: (el("pcSubtitle") && el("pcSubtitle").value) || "",
+      student: (el("pcStudent") && el("pcStudent").value) || "",
+      klass: (el("pcClass") && el("pcClass").value) || "",
+      date: (el("pcDate") && el("pcDate").value) || ""
+    };
+  }
+  function selectedResources() {
+    return getPrintableResources().filter(function (r) { return _sel[r.id]; });
+  }
+  function filtered() {
+    var q = _q.toLowerCase();
+    return getPrintableResources().filter(function (r) {
+      if (_cat && r.category !== _cat) return false;
+      if (q && (r.title + " " + r.category + " " + r.type).toLowerCase().indexOf(q) === -1) return false;
+      return true;
+    });
+  }
+  function estPages(list, o) {
+    var n = list.reduce(function (s, r) { return s + Math.max(1, r.pages || 1); }, 0);
+    if (o.compact) n = Math.ceil(n * 0.8);
+    if (o.cover && list.length > 1) n += 1;
+    if (o.toc && list.length > 1) n += 1;
+    return n;
+  }
+
+  /* ---------- actions ---------- */
+  function openPrintPreview() {
+    var list = selectedResources();
+    if (!list.length) { alert("Select at least one resource to preview."); return; }
+    var o = readOptions();
+    var prev = el("bookletPreview");
+    prev.innerHTML = '<div class="booklet-preview-pages">' + renderPrintBooklet(list, o) + "</div>";
+    prev.hidden = false;
+    scrollToEl(prev);
+  }
+  function bookletFilename(list, o) {
+    var content;
+    if (list.length === 1) content = list[0].title;
+    else if (list.length === getPrintableResources().length) content = o.coverTitle || "All Resources";
+    else content = o.coverTitle || "Resource Booklet";
+    return pdfName([content, o.student, "IELTS with Mourad"]);
+  }
+  function printSelectedResources(useAll) {
+    var list = useAll ? getPrintableResources().slice() : selectedResources();
+    if (!list.length) { alert(useAll ? "There are no printable resources." : "Select at least one resource to print."); return; }
+    var o = readOptions();
+    var node = el("printBooklet");
+    node.innerHTML = renderPrintBooklet(list, o);
+    node.setAttribute("aria-hidden", "false");
+    document.body.classList.add("printing-booklet");
+    var prevTitle = document.title;
+    document.title = bookletFilename(list, o);
+    window.print();
+    setTimeout(function () { document.body.classList.remove("printing-booklet"); node.setAttribute("aria-hidden", "true"); document.title = prevTitle; }, 400);
+  }
+  function pcToast(msg) {
+    var prev = el("pcToast"); if (prev) prev.remove();
+    var t = document.createElement("div");
+    t.className = "pc-toast"; t.id = "pcToast"; t.setAttribute("role", "status");
+    t.innerHTML = '<span class="pc-toast-label">Export as PDF</span>' + msg;
+    document.body.appendChild(t);
+    setTimeout(function () { if (t && t.parentNode) t.parentNode.removeChild(t); }, 9000);
+  }
+  function exportPdf(useAll) {
+    var list = useAll ? getPrintableResources() : selectedResources();
+    if (!list.length) { alert(useAll ? "There are no printable resources." : "Select at least one resource to export."); return; }
+    pcToast('In the print dialog, set <b>Destination</b> to \u201cSave as PDF\u201d, and open <b>More settings</b> to turn on <b>Background graphics</b> for full colour.');
+    setTimeout(function () { printSelectedResources(useAll); }, 350);
+  }
+  function resetOptions() {
+    ["pcCover", "pcToc", "pcModels", "pcPractice", "pcNotes", "pcNames"].forEach(function (id) { if (el(id)) el(id).checked = true; });
+    ["pcAnswers", "pcCompact", "pcBw"].forEach(function (id) { if (el(id)) el(id).checked = false; });
+    if (el("pcTitle")) el("pcTitle").value = _opts.coverTitle;
+    if (el("pcSubtitle")) el("pcSubtitle").value = _opts.coverSubtitle;
+    ["pcStudent", "pcClass", "pcDate"].forEach(function (id) { if (el(id)) el(id).value = ""; });
+    updateCounts();
+  }
+
+  /* ---------- selection UI ---------- */
+  function updateCounts() {
+    var sel = selectedResources();
+    var c = el("pcCount");
+    if (c) c.textContent = sel.length + " selected · ~" + estPages(sel, readOptions()) + " pages";
+  }
+  function resourceRow(r) {
+    var labels = [];
+    if (r.includes.worksheet) labels.push("worksheet");
+    if (r.includes.answerKey) labels.push("answer key");
+    if (r.includes.modelAnswer) labels.push("model answer");
+    if (r.includes.teacherNotes) labels.push("teacher notes");
+    if (r.includes.chart) labels.push("chart");
+    if (r.includes.vocab) labels.push("vocabulary");
+    return '<label class="pc-row' + (_sel[r.id] ? " is-sel" : "") + '">' +
+      '<input type="checkbox" class="pc-cb" data-pc="' + r.id + '"' + (_sel[r.id] ? " checked" : "") + ">" +
+      '<span class="pc-row-main"><span class="pc-row-title">' + esc(r.title) + "</span>" +
+        '<span class="pc-row-meta">' + esc(r.category) + " · " + esc(r.type) + (r.level ? " · " + esc(r.level) : "") + "</span>" +
+        '<span class="pc-row-labels">' + labels.map(function (l) { return '<span class="pc-tag">' + l + "</span>"; }).join("") + "</span></span>" +
+      "</label>";
+  }
+  function renderList() {
+    var list = filtered();
+    var groups = {}, order = [];
+    list.forEach(function (r) { if (!groups[r.category]) { groups[r.category] = []; order.push(r.category); } groups[r.category].push(r); });
+    var html = order.map(function (cat) {
+      return '<div class="pc-group"><h3 class="pc-group-h">' + esc(cat) + " <span>" + groups[cat].length + "</span></h3>" +
+        groups[cat].map(resourceRow).join("") + "</div>";
+    }).join("");
+    el("pcList").innerHTML = html || '<p class="empty-note">No resources match your search.</p>';
+    updateCounts();
+  }
+
+  function render() {
+    var view = el("view-printcenter");
+    var cats = categories();
+    view.innerHTML =
+      '<header class="view-head"><p class="view-eyebrow">Teacher tools</p>' +
+        '<h1 class="view-title">Resource Print Center</h1>' +
+        '<p class="view-sub">Select any resource, several, or all — then preview and print a branded A4 booklet or export it as a PDF.</p></header>' +
+
+      '<div class="pc-grid">' +
+        // -- left: selection --
+        '<div class="pc-select panel glass-panel pad">' +
+          '<div class="pc-toolbar">' +
+            '<input type="search" id="pcSearch" class="field-input" placeholder="Search resources…" aria-label="Search resources">' +
+            '<select id="pcCat" class="field-input" aria-label="Filter by category"><option value="">All categories</option>' +
+              cats.map(function (c) { return '<option value="' + esc(c) + '">' + esc(c) + "</option>"; }).join("") + "</select>" +
+          "</div>" +
+          '<div class="pc-toolbar pc-toolbar-2">' +
+            '<button class="btn btn-ghost btn-sm" id="pcSelectAll">Select all</button>' +
+            '<button class="btn btn-ghost btn-sm" id="pcClear">Clear selection</button>' +
+            '<span class="pc-count" id="pcCount">0 selected</span>' +
+          "</div>" +
+          '<div class="pc-list" id="pcList"></div>' +
+        "</div>" +
+
+        // -- right: options + actions --
+        '<aside class="pc-side">' +
+          '<div class="panel glass-panel pad pc-options">' +
+            '<h3 class="panel-label">Booklet options</h3>' +
+            '<div class="pc-toggles">' +
+              pcToggle("pcCover", "Cover page", true) +
+              pcToggle("pcToc", "Table of contents", true) +
+              pcToggle("pcModels", "Model answers", true) +
+              pcToggle("pcAnswers", "Answer keys", false) +
+              pcToggle("pcNotes", "Teacher notes", true) +
+              pcToggle("pcPractice", "Student practice boxes", true) +
+              pcToggle("pcNames", "Name / class / date", true) +
+              pcToggle("pcCompact", "Compact layout", false) +
+              pcToggle("pcBw", "Black-and-white friendly", false) +
+            "</div>" +
+            '<div class="pc-cover-fields">' +
+              '<label class="field-label">Booklet title</label><input id="pcTitle" class="field-input" value="' + esc(_opts.coverTitle) + '">' +
+              '<label class="field-label">Subtitle</label><input id="pcSubtitle" class="field-input" value="' + esc(_opts.coverSubtitle) + '">' +
+              '<div class="pc-cover-row">' +
+                '<span><label class="field-label">Student</label><input id="pcStudent" class="field-input"></span>' +
+                '<span><label class="field-label">Class / group</label><input id="pcClass" class="field-input"></span>' +
+              "</div>" +
+              '<label class="field-label">Date</label><input id="pcDate" class="field-input" placeholder="' + esc(todayLong()) + '">' +
+            "</div>" +
+          "</div>" +
+          '<div class="panel glass-panel pad pc-actions">' +
+            '<button class="btn btn-gold" id="pcPreview">Preview booklet</button>' +
+            '<button class="btn btn-navy" id="pcPrint">Print selected</button>' +
+            '<button class="btn btn-gold" id="pcExport">Export as PDF</button>' +
+            '<button class="btn btn-navy" id="pcBooklet">Generate booklet (all)</button>' +
+            '<button class="btn btn-ghost" id="pcReset">Reset options</button>' +
+            '<p class="pc-hint">Use your browser\u2019s print dialog and choose <b>Save as PDF</b> to export. Turn the dialog\u2019s background-graphics on for full colour.</p>' +
+          "</div>" +
+        "</aside>" +
+      "</div>" +
+
+      '<div class="booklet-preview" id="bookletPreview" hidden></div>';
+
+    bindUI();
+    renderList();
+  }
+
+  function pcToggle(id, label, on) {
+    return '<label class="pc-toggle"><input type="checkbox" id="' + id + '"' + (on ? " checked" : "") + "><span>" + esc(label) + "</span></label>";
+  }
+
+  function bindUI() {
+    on(el("pcSearch"), "input", function () { _q = this.value; renderList(); });
+    on(el("pcCat"), "change", function () { _cat = this.value; renderList(); });
+    on(el("pcSelectAll"), "click", function () { filtered().forEach(function (r) { _sel[r.id] = true; }); renderList(); });
+    on(el("pcClear"), "click", function () { _sel = {}; renderList(); });
+    on(el("pcPreview"), "click", function () { openPrintPreview(); });
+    on(el("pcPrint"), "click", function () { printSelectedResources(false); });
+    on(el("pcExport"), "click", function () { exportPdf(false); });
+    on(el("pcBooklet"), "click", function () { getPrintableResources().forEach(function (r) { _sel[r.id] = true; }); renderList(); printSelectedResources(true); });
+    on(el("pcReset"), "click", function () { resetOptions(); });
+    el("pcList").addEventListener("change", function (e) {
+      var cb = e.target.closest("[data-pc]");
+      if (!cb) return;
+      _sel[cb.dataset.pc] = cb.checked;
+      var row = cb.closest(".pc-row"); if (row) row.classList.toggle("is-sel", cb.checked);
+      updateCounts();
+    });
+    ["pcCover", "pcToc", "pcCompact"].forEach(function (id) { var n = el(id); if (n) on(n, "change", updateCounts); });
+  }
+
+  return {
+    render: render,
+    getPrintableResources: getPrintableResources,
+    renderPrintResource: renderPrintResource,
+    renderPrintCoverPage: renderPrintCoverPage,
+    renderTableOfContents: renderTableOfContents,
+    renderPrintBooklet: renderPrintBooklet,
+    openPrintPreview: openPrintPreview,
+    printSelectedResources: printSelectedResources,
+    _byId: byId
+  };
+})();
