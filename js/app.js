@@ -2602,6 +2602,36 @@ var examGuardActive = false;
 function beforeUnloadGuard(e) { if (examGuardActive) { e.preventDefault(); e.returnValue = ""; return ""; } }
 window.addEventListener("beforeunload", beforeUnloadGuard);
 
+function buildStructureFrames(task, t1, minWords) {
+  var frames = t1
+    ? [
+        { n: "1", h: "Introduction", b: "Paraphrase the task statement in your own words. <strong>Do not</strong> copy the prompt word for word." },
+        { n: "2", h: "Overview", b: "Summarise the main stages or features in one or two sentences. Keep it general — <strong>no</strong> detailed figures here." },
+        { n: "3", h: "Body paragraphs", b: "Group related data or stages logically and report the key details, with comparisons where relevant." }
+      ]
+    : [
+        { n: "1", h: "Introduction", b: "Paraphrase the topic in your own words and state your position clearly. <strong>Do not</strong> copy the prompt." },
+        { n: "2", h: "Body paragraphs", b: "One clear idea per paragraph, each explained and supported with an example." },
+        { n: "3", h: "Conclusion", b: "Restate your position in fresh words. Add no new ideas." }
+      ];
+  var instruction = t1
+    ? "Write your complete Task 1 response in the main essay box below, including the introduction, overview, and body paragraphs. The planning frames are there to help you think, but your final answer must be written as one complete essay."
+    : "Write your complete Task 2 response in the main essay box below, including the introduction, body paragraphs, and conclusion. The planning frames are there to help you think, but your final answer must be written as one complete essay.";
+  return '<section class="struct-frames" aria-label="How to structure your answer">' +
+    '<h3 class="struct-title">How to structure your answer</h3>' +
+    '<ol class="struct-list">' +
+      frames.map(function (f) {
+        return '<li class="struct-frame">' +
+          '<span class="struct-step">' + f.n + '</span>' +
+          '<div class="struct-body"><h4>' + f.h + '</h4><p>' + f.b + '</p></div></li>';
+      }).join("") +
+      '<li class="struct-frame struct-frame-essay">' +
+        '<span class="struct-step struct-step-essay">&#9733;</span>' +
+        '<div class="struct-body"><h4>Full essay</h4><p>' + esc(instruction) + '</p></div></li>' +
+    '</ol>' +
+  '</section>';
+}
+
 function helperAccordion(step, title, bodyHTML) {
   return '<div class="panel glass-panel helper-panel">' +
     '<button class="acc-head" data-acc aria-expanded="false"><span><span class="helper-step">' + esc(step) + '</span>' + esc(title) + '</span><span class="acc-chev" aria-hidden="true"></span></button>' +
@@ -2685,12 +2715,24 @@ function openTask(taskId, mode, assignmentId) {
 
     (locked ? '<div class="locked-banner">This exam task has been submitted and locked. ' + (existing.retakeAllowed ? "" : "Ask your teacher to allow a retake if needed.") + ' Your feedback and the model answer are shown below.</div>' : "") +
 
-    '<div class="ws-grid">' +
-      '<div class="ws-col-main">' +
-        '<article class="panel paper-panel"><h3 class="panel-label">The task</h3><p class="ws-prompt">' + esc(task.prompt) + '</p>' + image + '</article>' +
+    '<div class="studio-grid">' +
+      // ---- LEFT: sticky task reference (prompt + chart) ----
+      '<aside class="studio-task">' +
+        '<article class="panel paper-panel studio-task-panel">' +
+          '<h3 class="panel-label">The task</h3>' +
+          '<p class="ws-prompt">' + esc(task.prompt) + '</p>' + image +
+        '</article>' +
+      '</aside>' +
+
+      // ---- RIGHT: structure guidance + writing space ----
+      '<div class="studio-write">' +
+        buildStructureFrames(task, t1, minWords) +
         planning +
-        '<article class="panel paper-panel ws-writing"><div class="ws-writing-head"><h3 class="panel-label">Your ' + (t1 ? "report" : "essay") + '</h3><span class="wordcount" id="wsWordCount">0 words</span></div>' +
-          '<textarea id="wsWriting" class="ws-textarea" rows="' + (t1 ? 14 : 16) + '" placeholder="Write at least ' + minWords + ' words." ' + (locked ? "readonly" : "") + '>' + esc((draft && draft.draft) || (existing && existing.text) || "") + '</textarea></article>' +
+        '<article class="panel paper-panel ws-writing">' +
+          '<div class="ws-writing-head"><h3 class="panel-label">Your full ' + (t1 ? "report" : "essay") + '</h3>' +
+            '<span class="ws-write-meta"><span class="wordcount" id="wsWordCount">0 words</span><span class="ws-savestatus" id="wsSaveStatus" aria-live="polite"></span></span></div>' +
+          '<p class="ws-write-guide">Write your complete answer here — at least <strong>' + minWords + ' words</strong>' + (t1 ? ', including the introduction, overview and body paragraphs as one essay.' : ', including the introduction, body paragraphs and conclusion as one essay.') + '</p>' +
+          '<textarea id="wsWriting" class="ws-textarea" rows="' + (t1 ? 18 : 20) + '" placeholder="Write at least ' + minWords + ' words." ' + (locked ? "readonly" : "") + '>' + esc((draft && draft.draft) || (existing && existing.text) || "") + '</textarea></article>' +
 
         '<div class="ws-actions">' +
           (locked ? "" : '<button class="btn btn-gold" id="btnFeedback">Get AI Writing Feedback</button>') +
@@ -2708,13 +2750,16 @@ function openTask(taskId, mode, assignmentId) {
           '<div class="acc-body"><p class="model-note">Compare your grouping, overview/position and comparisons with this version.</p><div class="model-text">' + task.model.map(function (p) { return "<p>" + esc(p) + "</p>"; }).join("") + '</div></div>' +
         '</article>' +
       '</div>' +
+    '</div>' +
 
-      '<aside class="ws-col-side">' +
-        '<div class="side-flow" aria-hidden="true">' + (t1 ? "Learn → Analyse → Plan → Write → Check → Compare" : "Understand → Plan → Write → Check → Improve") + '</div>' +
+    // ---- BELOW (full width): coaching aids + checklist ----
+    '<section class="studio-aids">' +
+      '<div class="side-flow" aria-hidden="true">' + (t1 ? "Learn → Analyse → Plan → Write → Check → Compare" : "Understand → Plan → Write → Check → Improve") + '</div>' +
+      '<div class="studio-aids-grid">' +
         '<div id="wsHelpers">' + buildHelpers(task) + '</div>' +
         '<div class="panel glass-panel"><button class="acc-head" data-acc aria-expanded="false">Check — IELTS checklist <span class="acc-chev" aria-hidden="true"></span></button><div class="acc-body"><ul class="checklist" id="wsChecklist">' + checklistHTML(task, user.id) + '</ul></div></div>' +
-      '</aside>' +
-    '</div>';
+      '</div>' +
+    '</section>';
 
   wireWorkspace(task, mode, user, locked);
   showView("workspace");
@@ -2747,11 +2792,18 @@ function wireWorkspace(task, mode, user, locked) {
     if (t1) { if (el("wsPlan")) patch.plan = el("wsPlan").value; }
     else { patch.thesis = el("wsThesis").value; patch.body1 = el("wsBody1").value; patch.body2 = el("wsBody2").value; }
     SubmissionService.patchDraft(user.id, task.id, patch);
+    var st = el("wsSaveStatus");
+    if (st) {
+      var d = new Date();
+      st.textContent = "Saved " + ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2);
+      st.classList.add("is-saved");
+    }
   }
   var pending;
-  on(el("wsWriting"), "input", function () { updateWC(); clearTimeout(pending); pending = setTimeout(saveDraft, 400); });
+  function flagSaving() { var st = el("wsSaveStatus"); if (st) { st.textContent = "Saving…"; st.classList.remove("is-saved"); } }
+  on(el("wsWriting"), "input", function () { updateWC(); flagSaving(); clearTimeout(pending); pending = setTimeout(saveDraft, 400); });
   ["wsPlan", "wsThesis", "wsBody1", "wsBody2"].forEach(function (id) {
-    var node = el(id); if (node) on(node, "input", function () { clearTimeout(pending); pending = setTimeout(saveDraft, 400); });
+    var node = el(id); if (node) on(node, "input", function () { flagSaving(); clearTimeout(pending); pending = setTimeout(saveDraft, 400); });
   });
 
   // checklist
@@ -2819,7 +2871,7 @@ function bindStaticWorkspaceButtons(task, mode, user, locked) {
   on(el("btnPrintWs"), "click", function () {
     var text = el("wsWriting").value;
     ReportService.printSubmissionLike({
-      student: user.name, task: task, mode: mode,
+      student: user.name, task: task, mode: mode, text: text,
       words: countWords(text), time: CURRENT.timer ? fmtTime(CURRENT.timer.spent) : "—",
       checklist: collectChecklist(),
       ai: buildLocalDiagnostic(text, task.kind, task, collectChecklist(), countWords(text)),
@@ -3509,7 +3561,7 @@ function openSubmissionDetail(subId) {
       finalBand: parseFloat(el("ovBand").value), taTR: numOrNull("ovTA"), cc: numOrNull("ovCC"), lr: numOrNull("ovLR"), gr: numOrNull("ovGR"),
       comments: el("ovComments").value.trim(), correctionNotes: el("ovNotes").value.trim(), nextTarget: el("ovNext").value.trim()
     };
-    ReportService.printSubmissionLike({ student: who, task: task, mode: s.mode, words: s.words, time: s.timeSpent ? fmtTime(s.timeSpent) : "—", checklist: s.checklist, ai: s.ai, review: isNaN(review.finalBand) ? null : review, reportType: "teacher" });
+    ReportService.printSubmissionLike({ student: who, task: task, mode: s.mode, text: s.text, words: s.words, time: s.timeSpent ? fmtTime(s.timeSpent) : "—", checklist: s.checklist, ai: s.ai, review: isNaN(review.finalBand) ? null : review, reportType: "teacher" });
   });
 
   showView("detail");
@@ -3573,7 +3625,7 @@ on(el("repPrint"), "click", function () {
   if (!s) { alert("This student has no submissions to report on yet."); return; }
   var task = TaskService.byId(s.taskId);
   var who = (AuthService.byId(s.userId) || {}).name || "Student";
-  ReportService.printSubmissionLike({ student: who, task: task, mode: s.mode, words: s.words, time: s.timeSpent ? fmtTime(s.timeSpent) : "—", checklist: s.checklist, ai: s.ai, review: (s.review && s.review.reviewed) ? s.review : null, comments: el("repComments").value, reportType: type });
+  ReportService.printSubmissionLike({ student: who, task: task, mode: s.mode, text: s.text, words: s.words, time: s.timeSpent ? fmtTime(s.timeSpent) : "—", checklist: s.checklist, ai: s.ai, review: (s.review && s.review.reviewed) ? s.review : null, comments: el("repComments").value, reportType: type });
 });
 
 /* ==========================================================================
@@ -3620,6 +3672,37 @@ var ReportService = {
     el("prWeak").innerHTML = ai.weaknesses.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("");
     el("prErrors").innerHTML = ai.errors.length ? ai.errors.map(function (x) { return "<li><strong>" + esc(x.type) + ":</strong> " + esc(x.detail) + "</li>"; }).join("") : "<li>No major error categories flagged.</li>";
     el("prNext").textContent = (rv && rv.nextTarget) ? rv.nextTarget : ai.nextRecommendation;
+
+    // The task: full prompt + chart/diagram (chart only for Task 1)
+    el("prPrompt").textContent = o.task.prompt || "";
+    var fig = el("prFigure"), img = el("prImage");
+    if (t1 && o.task.img) {
+      img.src = o.task.img; img.alt = o.task.alt || ""; fig.style.display = "";
+    } else {
+      img.removeAttribute("src"); fig.style.display = "none";
+    }
+
+    // Student's full response
+    el("prEssay").textContent = (o.text != null ? o.text : "") || "(No response was written.)";
+
+    // Corrected sample — before/after sentence rewrites from the diagnostic
+    var corr = (ai.sentenceCorrections || []);
+    el("prCorrected").innerHTML = corr.length
+      ? corr.map(function (c) {
+          return '<div class="pr-corr-pair"><p class="pr-corr-from">' + esc(c.original) + '</p>' +
+            '<p class="pr-corr-to">&rarr; ' + esc(c.improved) + '</p>' +
+            (c.reason ? '<p class="pr-corr-why">' + esc(c.reason) + '</p>' : "") + '</div>';
+        }).join("")
+      : '<p class="pr-comments">No sentence-level corrections were flagged — focus on the action steps below.</p>';
+    el("prCorrectedSection").style.display = (o.reportType === "parent") ? "none" : "";
+
+    // Action steps — concrete next moves drawn from the diagnostic
+    var actions = [];
+    var nextStep = (rv && rv.nextTarget) ? rv.nextTarget : ai.nextRecommendation;
+    if (nextStep) actions.push(nextStep);
+    (ai.grammarUpgrades || []).forEach(function (g) { if (actions.length < 5) actions.push(g); });
+    (ai.weaknesses || []).forEach(function (w) { if (actions.length < 6) actions.push("Work on: " + w); });
+    el("prActions").innerHTML = actions.map(function (a) { return "<li>" + esc(a) + "</li>"; }).join("");
 
     var comments = (rv && rv.comments) || o.comments || "";
     el("prComments").textContent = comments || "—";
