@@ -1264,13 +1264,37 @@ const AuthService = (function () {
     current: function () { return authMode() === "supabase" ? _user : localCurrent(); },
     role: function () { var u = this.current(); return u ? u.role : null; },
     students: function () {
-      var local = StorageService.read().users.filter(function (u) { return u.role === "student"; });
+      var localAll = StorageService.read().users.filter(function (u) { return u.role === "student"; });
+      var blocked = {}; localAll.forEach(function (u) { if (u.blocked) blocked[u.id] = 1; });
+      var local = localAll.filter(function (u) { return !u.blocked; });
       if (authMode() !== "supabase") return local;
       var map = {};
       var cs = CloudService.cache.students || {};
-      for (var id in cs) map[id] = { id: id, name: cs[id].name, role: "student" };
+      for (var id in cs) { if (!blocked[id]) map[id] = { id: id, name: cs[id].name, role: "student" }; }
       local.forEach(function (u) { if (!map[u.id]) map[u.id] = u; });
       return Object.keys(map).map(function (id) { return map[id]; }).sort(function (a, b) { return (a.name || "").localeCompare(b.name || ""); });
+    },
+    blockedStudents: function () {
+      return StorageService.read().users
+        .filter(function (u) { return u.role === "student" && u.blocked; })
+        .sort(function (a, b) { return (a.name || "").localeCompare(b.name || ""); });
+    },
+    blockStudent: function (id) {
+      StorageService.update(function (d) {
+        var u = d.users.find(function (x) { return x.id === id; });
+        if (u) { u.blocked = true; u.blockedAt = nowISO(); }
+        else {
+          var nm = ((CloudService.cache.students || {})[id] || {}).name || (CloudService.cache.roster || {})[id] || id;
+          d.users.push({ id: id, name: nm, role: "student", blocked: true, blockedAt: nowISO(), createdAt: nowISO() });
+        }
+        if (d.session && d.session.userId === id) d.session = null;
+      });
+    },
+    unblockStudent: function (id) {
+      StorageService.update(function (d) {
+        var u = d.users.find(function (x) { return x.id === id; });
+        if (u) { u.blocked = false; delete u.blockedAt; }
+      });
     },
     byId: function (id) {
       var local = StorageService.read().users.find(function (u) { return u.id === id; });
@@ -1293,6 +1317,7 @@ const AuthService = (function () {
       if (!name) return null;
       var db = StorageService.read();
       var existing = db.users.find(function (u) { return u.role === role && u.name.toLowerCase() === name.toLowerCase(); });
+      if (existing && existing.blocked && role === "student") return { blocked: true };
       StorageService.update(function (d) {
         if (!existing) {
           existing = { id: uid("u"), name: name, role: role, createdAt: nowISO() };
@@ -1515,6 +1540,50 @@ const SYNONYMS = { increase: "rise / grow / climb", decrease: "fall / decline / 
 const FeedbackService = {
   generateAIWritingFeedback: function (submission) {
     return buildLocalDiagnostic(submission.text || "", submission.kind, submission.task || {}, submission.checklist || {}, submission.words);
+  },
+  /* True only when the cloud is configured — otherwise we stay fully offline. */
+  aiAvailable: function () {
+    var cfg = (typeof window !== "undefined" && window.MMWA_CONFIG) || {};
+    return !!(cfg.supabaseUrl && cfg.supabaseAnonKey);
+  },
+  /* Shape guard: a remote payload must look like a diagnostic before we trust it. */
+  validAI: function (ai) {
+    return !!(ai && ai.criteria && ai.criteria.taskAchievement && typeof ai.estimatedBand === "number" &&
+      Array.isArray(ai.strengths) && Array.isArray(ai.weaknesses) && ai.metrics);
+  },
+  /* POST to the Groq Edge Function. Resolves to a diagnostic object or null. */
+  requestRemote: function (sub) {
+    if (!this.aiAvailable()) return Promise.resolve(null);
+    var cfg = window.MMWA_CONFIG;
+    var url = String(cfg.supabaseUrl).replace(/\/+$/, "") + "/functions/v1/writing-feedback";
+    var task = sub.task || TaskService.byId(sub.taskId) || {};
+    var self = this;
+    var ctrl = (typeof AbortController !== "undefined") ? new AbortController() : null;
+    var to = ctrl ? setTimeout(function () { ctrl.abort(); }, 22000) : null;
+    return fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "apikey": cfg.supabaseAnonKey, "Authorization": "Bearer " + cfg.supabaseAnonKey },
+      body: JSON.stringify({ text: sub.text || "", kind: sub.kind, taskType: sub.type || task.type || "", minWords: TaskService.minWords(sub.kind) }),
+      signal: ctrl ? ctrl.signal : undefined
+    })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .catch(function () { return null; })
+      .then(function (ai) { if (to) clearTimeout(to); return self.validAI(ai) ? ai : null; });
+  },
+  /* Fetch remote feedback and, if valid, overwrite the stored submission's .ai. */
+  enhanceWithAI: function (submissionId) {
+    var sub = SubmissionService.byId(submissionId);
+    if (!sub) return Promise.resolve(null);
+    return this.requestRemote(sub).then(function (ai) {
+      if (!ai) return null;
+      StorageService.update(function (db) {
+        var rec = db.submissions.find(function (s) { return s.id === submissionId; });
+        if (rec) rec.ai = ai;
+      });
+      var saved = StorageService.read().submissions.find(function (s) { return s.id === submissionId; });
+      if (saved) CloudService.putSubmission(saved);
+      return ai;
+    });
   }
 };
 
@@ -2273,7 +2342,7 @@ function renderAuth() {
       '<p class="auth-error" id="authError" role="alert"></p>' +
       '<p class="auth-roles"><strong>Students</strong> write and track progress. <strong>Teachers</strong> assign work, review and issue certificates.</p>';
     if (note) note.textContent = "Offline mode: only a display name is collected, saved in this browser. Connect a cloud project to switch on secure email accounts.";
-    on(el("authStudentBtn"), "click", function () { var n = el("authName").value.trim(); if (!n) { authMsg("Please enter a display name to continue.", true); return; } AuthService.signIn(n, "student"); boot(); });
+    on(el("authStudentBtn"), "click", function () { var n = el("authName").value.trim(); if (!n) { authMsg("Please enter a display name to continue.", true); return; } var res = AuthService.signIn(n, "student"); if (res && res.blocked) { authMsg("This student account has been removed by your teacher. Ask them to restore it if this is a mistake.", true); return; } boot(); });
     on(el("authTeacherBtn"), "click", function () { var n = el("authName").value.trim(); if (!n) { authMsg("Please enter a display name to continue.", true); return; } AuthService.signIn(n, "teacher"); boot(); });
     on(el("authName"), "keydown", function (e) { if (e.key === "Enter") el("authStudentBtn").click(); });
     return;
@@ -2667,7 +2736,7 @@ function wireWorkspace(task, mode, user, locked) {
   if (locked) {
     // read-only: still allow feedback view of stored submission
     var existing = SubmissionService.get(user.id, task.id, mode);
-    if (existing && existing.ai) renderFeedback(el("wsFeedback"), existing.ai);
+    if (existing && existing.ai) renderFeedbackThenEnhance(el("wsFeedback"), existing);
     bindStaticWorkspaceButtons(task, mode, user, locked);
     return;
   }
@@ -2736,13 +2805,13 @@ function bindStaticWorkspaceButtons(task, mode, user, locked) {
       if (CURRENT.timer) CURRENT.timer.stop();
       // unlock model + show feedback + lock editing
       el("wsModelWrap").hidden = false;
-      renderFeedback(el("wsFeedback"), sub.ai);
+      renderFeedbackThenEnhance(el("wsFeedback"), sub);
       el("wsWriting").readOnly = true;
       this.remove();
       scrollToEl(el("wsFeedback"));
     } else {
       var sub2 = SubmissionService.submitPractice(user.id, task.id, payload);
-      renderFeedback(el("wsFeedback"), sub2.ai);
+      renderFeedbackThenEnhance(el("wsFeedback"), sub2);
       scrollToEl(el("wsFeedback"));
     }
   });
@@ -2772,12 +2841,38 @@ function collectChecklist() {
 function bandChip(c) {
   return '<div class="crit-chip"><span class="crit-band">' + c.band.toFixed(1) + '</span><span class="crit-name">' + esc(c.label) + '</span></div>';
 }
+function markAIPending(container) {
+  if (!container || !FeedbackService.aiAvailable()) return;
+  clearAIPending(container);
+  var n = document.createElement("p");
+  n.id = "fbAiPending";
+  n.style.cssText = "margin-top:.75rem;font-size:.85rem;opacity:.7";
+  n.textContent = "Requesting AI examiner feedback…";
+  container.appendChild(n);
+}
+function clearAIPending(container) {
+  var n = container && container.querySelector("#fbAiPending");
+  if (n) n.remove();
+}
+/* Render local feedback now, then upgrade in place if the AI call succeeds. */
+function renderFeedbackThenEnhance(container, submission) {
+  renderFeedback(container, submission.ai);
+  if (!container || !FeedbackService.aiAvailable()) return;
+  // Already upgraded by Groq — don't re-bill the model on every reopen/detail view.
+  if (submission.ai && submission.ai.source === "groq") return;
+  markAIPending(container);
+  FeedbackService.enhanceWithAI(submission.id).then(function (ai) {
+    if (!container) return;
+    if (ai) renderFeedback(container, ai);
+    else clearAIPending(container);
+  });
+}
 function renderFeedback(container, fb) {
   if (!container) return;
   var c = fb.criteria;
   container.innerHTML =
     '<article class="panel feedback-panel">' +
-      '<div class="fb-head"><div><span class="fb-tag">Preliminary Writing Diagnostic</span><h3 class="fb-title">Estimated band <strong>' + fb.estimatedBand.toFixed(1) + '</strong></h3></div>' +
+      '<div class="fb-head"><div><span class="fb-tag">' + (fb.source === "groq" ? "AI examiner feedback" : "Preliminary Writing Diagnostic") + '</span><h3 class="fb-title">Estimated band <strong>' + fb.estimatedBand.toFixed(1) + '</strong></h3></div>' +
       '<p class="fb-disclaimer">' + esc(fb.label) + '. This is an automated diagnostic to guide practice — your teacher\'s review is the authoritative score.</p></div>' +
       '<div class="crit-row">' + [c.taskAchievement, c.coherenceCohesion, c.lexicalResource, c.grammaticalRange].map(bandChip).join("") + '</div>' +
       '<div class="fb-cols">' +
@@ -3200,14 +3295,38 @@ function renderStudents() {
         '<button class="btn btn-ghost btn-sm" data-assign-student="' + s.id + '">Assign</button>' +
         '<button class="btn btn-ghost btn-sm" data-token-student="' + s.id + '">Tokens</button>' +
         '<button class="btn btn-ghost btn-sm" data-cert-student="' + s.id + '">Certificate</button>' +
+        '<button class="btn btn-ghost btn-sm" data-del-student="' + s.id + '">Remove</button>' +
       '</td></tr>';
   }).join("");
-  el("view-students").querySelector(".students-body").innerHTML =
-    students.length
-      ? '<div class="table-wrap"><table class="data-table"><thead><tr><th>Student</th><th class="num">Done</th><th class="num">T1 avg</th><th class="num">T2 avg</th><th>Weakest criterion</th><th>Exam access</th><th>Actions</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
-      : '<p class="empty-note">No students yet. Students appear here automatically when they sign in, or add a sample one below.</p>';
+  var removed = AuthService.blockedStudents();
+  var removedHTML = removed.length
+    ? '<div class="removed-students" style="margin-top:1.25rem;padding-top:1rem;border-top:1px solid rgba(201,169,97,.25)">' +
+        '<p class="removed-h" style="margin:0 0 .5rem;font-size:.85rem;letter-spacing:.04em;text-transform:uppercase;opacity:.7">Removed students (' + removed.length + ')</p>' +
+        removed.map(function (s) {
+          return '<div class="removed-row" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.35rem 0">' +
+            '<span style="opacity:.75">' + esc(s.name) + '</span>' +
+            '<button class="btn btn-ghost btn-sm" data-restore-student="' + s.id + '">Restore</button>' +
+          '</div>';
+        }).join("") +
+      '</div>'
+    : "";
+  var tableHTML = students.length
+    ? '<div class="table-wrap"><table class="data-table"><thead><tr><th>Student</th><th class="num">Done</th><th class="num">T1 avg</th><th class="num">T2 avg</th><th>Weakest criterion</th><th>Exam access</th><th>Actions</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+    : '<p class="empty-note">No students yet. Students appear here automatically when they sign in, or add a sample one below.</p>';
+  el("view-students").querySelector(".students-body").innerHTML = tableHTML + removedHTML;
 }
 document.addEventListener("click", function (e) {
+  var del = e.target.closest("[data-del-student]");
+  if (del) {
+    var dn = (AuthService.byId(del.dataset.delStudent) || {}).name || "this student";
+    if (confirm("Remove " + dn + " from your class?\n\nTheir work is kept but hidden from the roster, and they will not be able to sign back in until you restore them.")) {
+      AuthService.blockStudent(del.dataset.delStudent);
+      renderStudents();
+    }
+    return;
+  }
+  var rst = e.target.closest("[data-restore-student]");
+  if (rst) { AuthService.unblockStudent(rst.dataset.restoreStudent); renderStudents(); return; }
   var a = e.target.closest("[data-token-student]");
   if (a) { manageTokens(a.dataset.tokenStudent); return; }
   var c = e.target.closest("[data-cert-student]");
@@ -3371,7 +3490,7 @@ function openSubmissionDetail(subId) {
       '</aside>' +
     '</div>';
 
-  renderFeedback(el("detailFeedback"), s.ai);
+  renderFeedbackThenEnhance(el("detailFeedback"), s);
 
   on(el("allowRetake"), "click", function () { SubmissionService.allowRetake(s.id); alert("Retake allowed for this student."); showView("submissions"); });
   on(el("saveReview"), "click", function () {
