@@ -1717,8 +1717,8 @@ function fmtTime(sec) { var m = Math.floor(sec / 60), s = sec % 60; return m + "
    ========================================================================== */
 
 var NAV = {
-  student: [["dashboard", "Dashboard"], ["intro", "Introduction"], ["task1", "Task 1"], ["task2", "Task 2"], ["clinic", "Writing Clinic"], ["library", "Library"], ["reports", "Reports"]],
-  teacher: [["dashboard", "Dashboard"], ["intro", "Introduction"], ["students", "Students"], ["assignments", "Assignments"], ["improvement", "Improvement Lab"], ["submissions", "Submissions"], ["library", "Library"], ["reports", "Reports"]]
+  student: [["dashboard", "Dashboard"], ["intro", "Introduction"], ["task1", "Task 1"], ["task2", "Task 2"], ["clinic", "Writing Clinic"], ["vocab", "Vocabulary Games"], ["paraphrase", "Task 1 Paraphrasing"], ["library", "Library"], ["reports", "Reports"]],
+  teacher: [["dashboard", "Dashboard"], ["intro", "Introduction"], ["students", "Students"], ["assignments", "Assignments"], ["improvement", "Improvement Lab"], ["submissions", "Submissions"], ["vocab", "Vocabulary Games"], ["paraphrase", "Task 1 Paraphrasing"], ["library", "Library"], ["reports", "Reports"]]
 };
 
 function renderNav() {
@@ -1755,7 +1755,15 @@ function showView(name) {
   el("navToggle").setAttribute("aria-expanded", "false");
   window.scrollTo({ top: 0, behavior: "auto" });
 
-  if (name === "dashboard") role === "teacher" ? renderTeacherDash() : renderStudentDash();
+  if (name === "dashboard") {
+    role === "teacher" ? renderTeacherDash() : renderStudentDash();
+    if (window.MMWA_TRAINING) {
+      var _dv = el("view-dashboard");
+      _dv.innerHTML += role === "teacher"
+        ? window.MMWA_TRAINING.teacherCardsHTML(AuthService.students())
+        : window.MMWA_TRAINING.studentSummaryHTML(AuthService.current());
+    }
+  }
   if (name === "task1") renderGallery("task1");
   if (name === "task2") renderGallery("task2");
   if (name === "clinic") renderClinic();
@@ -1765,6 +1773,8 @@ function showView(name) {
   if (name === "assignments") renderAssignments();
   if (name === "improvement") renderImprovementLab();
   if (name === "submissions") renderSubmissions();
+  if (name === "vocab" && window.MMWA_TRAINING) window.MMWA_TRAINING.renderVocab(el("view-vocab"), AuthService.current());
+  if (name === "paraphrase" && window.MMWA_TRAINING) window.MMWA_TRAINING.renderParaphrase(el("view-paraphrase"), AuthService.current());
 }
 
 document.addEventListener("click", function (e) {
