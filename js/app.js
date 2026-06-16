@@ -121,7 +121,7 @@ const MISSIONS = [
     ]
   },
   {
-    id: "t1-pie", task: "task1", type: "Pie Chart",
+    id: "t1-pie", task: "task1", type: "Pie chart",
     title: "Household Expenditure Distribution (2000 vs 2020)",
     img: "assets/task1/pie-household-expenditure.png",
     alt: "Two pie charts showing the distribution of household expenditure across six categories in 2000 and 2020",
@@ -141,7 +141,7 @@ const MISSIONS = [
     ]
   },
   {
-    id: "t1-bar", task: "task1", type: "Bar Chart",
+    id: "t1-bar", task: "task1", type: "Bar chart",
     title: "International Students in Canada by Country (2005 vs 2020)",
     img: "assets/task1/bar-international-students.png",
     alt: "Bar chart comparing the number of international students in Canada from five countries in 2005 and 2020",
@@ -161,7 +161,7 @@ const MISSIONS = [
     ]
   },
   {
-    id: "t1-line", task: "task1", type: "Line Graph",
+    id: "t1-line", task: "task1", type: "Line graph",
     title: "Household Energy Usage by Source (1990–2020)",
     img: "assets/task1/line-energy-usage.png",
     alt: "Line graph showing the percentage of households using coal, gas and electricity between 1990 and 2020",
@@ -181,7 +181,7 @@ const MISSIONS = [
     ]
   },
   {
-    id: "t1-line-renewable", task: "task1", type: "Line Graph",
+    id: "t1-line-renewable", task: "task1", type: "Line graph",
     title: "Renewable Electricity Generation in Country X (2010–2022)",
     img: "assets/task1/line-renewable-energy.png",
     alt: "Line graph showing electricity generated from wind, solar and hydro in Country X between 2010 and 2022, in terawatt-hours",
@@ -201,7 +201,7 @@ const MISSIONS = [
     ]
   },
   {
-    id: "t1-bar-employment", task: "task1", type: "Bar Chart",
+    id: "t1-bar-employment", task: "task1", type: "Bar chart",
     title: "Workforce by Sector in Four Countries (2022)",
     img: "assets/task1/bar-employment-sectors.png",
     alt: "Grouped bar chart comparing the percentage of the workforce in agriculture, industry and services across four countries in 2022",
@@ -221,7 +221,7 @@ const MISSIONS = [
     ]
   },
   {
-    id: "t1-pie-water", task: "task1", type: "Pie Chart",
+    id: "t1-pie-water", task: "task1", type: "Pie chart",
     title: "Household Water Use by Activity (2000 vs 2020)",
     img: "assets/task1/pie-water-use.png",
     alt: "Two pie charts showing how household water was used across five activities in 2000 and 2020",
@@ -379,7 +379,7 @@ const T2_TYPES = [
     ]
   },
   {
-    id: "t2-twopart", task: "task2", type: "Two-part Question", title: "Two-part question — Money and success",
+    id: "t2-twopart", task: "task2", type: "Two-part question", title: "Two-part question — Money and success",
     difficulty: "Challenge", time: "40 min",
     desc: "Answer two distinct questions fully — one paragraph each, nothing skipped.",
     prompt: "Success is often measured by the amount of money a person has. Is money a good indicator of success? What other factors contribute to success? Write at least 250 words.",
@@ -1355,7 +1355,14 @@ const TaskService = {
   },
   byId: function (id) { return TaskService.all().find(function (t) { return t.id === id; }) || null; },
   byKind: function (kind) { return TaskService.all().filter(function (t) { return t.kind === kind; }); },
-  types: function () { return Array.from(new Set(TaskService.all().map(function (t) { return t.type; }))); },
+  types: function () {
+    var seen = {}, out = [];
+    TaskService.all().forEach(function (t) {
+      var k = canonTypeKey(t.type);
+      if (k && !seen[k]) { seen[k] = 1; out.push(t.type); }
+    });
+    return out;
+  },
   minWords: function (kind) { return kind === "task1" ? 150 : 250; },
   examMinutes: function (kind) { return kind === "task1" ? 20 : 40; }
 };
@@ -2142,6 +2149,7 @@ function countWords(text) {
   var m = (text || "").trim().match(/[\p{L}\p{N}'’-]+/gu);
   return m ? m.length : 0;
 }
+function canonTypeKey(s) { return String(s == null ? "" : s).trim().replace(/\s+/g, " ").toLowerCase(); }
 function esc(s) {
   return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
@@ -3159,7 +3167,7 @@ function renderLibrary() {
   var items = TaskService.all().filter(function (t) {
     if (gated && !aset[t.id]) return false;
     if (fTask && t.kind !== fTask) return false;
-    if (fType && t.type !== fType) return false;
+    if (fType && canonTypeKey(t.type) !== canonTypeKey(fType)) return false;
     if (fDiff && t.difficulty !== fDiff) return false;
     if (fBand && (BAND_TARGET[t.difficulty] || "") !== fBand) return false;
     if (fStatus && statusOfTask(user.id, t.id) !== fStatus) return false;
