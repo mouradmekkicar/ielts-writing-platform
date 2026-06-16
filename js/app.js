@@ -4225,6 +4225,7 @@ var PrintCenter = (function () {
 
   function render() {
     var view = el("view-printcenter");
+    if (!view) { return; }
     var cats = categories();
     view.innerHTML =
       '<header class="view-head"><p class="view-eyebrow">Teacher tools</p>' +
