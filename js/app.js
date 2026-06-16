@@ -179,7 +179,108 @@ const MISSIONS = [
       "In 1990, coal was the dominant source, used by 40% of households. Its popularity then fell continuously, slipping to 35% in 2000 and 25% in 2010, before reaching a low of just 15% at the end of the period — under half its original figure.",
       "The two other sources followed the opposite path. Gas rose gradually from 30% to 38%, overtaking coal early in the century and remaining the leading source thereafter. Electricity recorded the largest overall increase, climbing from only 20% of households in 1990 to 35% in 2020 and passing coal around 2010, so that by the final year the two growing sources were separated by a mere three percentage points."
     ]
+  },
+  {
+    id: "t1-line-renewable", task: "task1", type: "Line Graph",
+    title: "Renewable Electricity Generation in Country X (2010–2022)",
+    img: "assets/task1/line-renewable-energy.png",
+    alt: "Line graph showing electricity generated from wind, solar and hydro in Country X between 2010 and 2022, in terawatt-hours",
+    difficulty: "Core", time: "20 min",
+    desc: "Track three energy sources over time — steady growth, a fast riser, and a flat line.",
+    prompt: "The line graph shows the amount of electricity generated from wind, solar and hydro power in Country X between 2010 and 2022, measured in terawatt-hours (TWh). Summarise the information by selecting and reporting the main features, and make comparisons where relevant. Write at least 150 words.",
+    learn: "Line graphs are about movement over time. Your overview should capture the overall direction of each line and the headline change in ranking — here, two sources surge while one barely moves. Use the past tense throughout and let the trends, not individual years, drive your paragraphs.",
+    analyse: ["Wind led throughout, climbing steadily from 10 to 72 TWh.", "Solar started lowest (just 2 TWh) but grew fastest, overtaking hydro around 2016 and almost matching wind by 2022 (65 TWh).", "Hydro was virtually flat, edging up only from 40 to 45 TWh across the whole period.", "By 2022 the ranking had reversed for solar and hydro: the smallest source had become the second largest."],
+    plan: ["Introduction: paraphrase (electricity from three renewable sources, 2010–2022, in TWh).", "Overview: wind and solar rose sharply while hydro stayed almost constant; solar's growth was the most dramatic, transforming the ranking.", "Body 1: wind and solar — their upward trends, the crossover with hydro, and the narrowing gap by 2022.", "Body 2: hydro — the flat line — contrasted with the other two."],
+    vocab: ["rose steadily / climbed sharply", "grew more than thirtyfold", "overtook hydro in 2016", "remained virtually unchanged", "stood at 72 TWh by the end of the period", "the gap had narrowed to just 7 TWh"],
+    tip: "Don't describe every year for every line — that is just reading the graph aloud. Select the turning points (where solar overtakes hydro) and the contrasts (rapid growth vs a flat line).",
+    model: [
+      "The line graph illustrates how much electricity Country X produced from wind, solar and hydroelectric power between 2010 and 2022, expressed in terawatt-hours.",
+      "Overall, generation from wind and solar increased substantially over the period, whereas hydro output remained almost static. The most striking development was the rise of solar power, which grew from the smallest source to the second largest.",
+      "In 2010, wind already supplied 10 TWh and rose consistently thereafter, reaching 72 TWh by 2022. Solar, by contrast, began at a negligible 2 TWh but expanded far more rapidly. Having overtaken hydro at around 2016, it climbed to 65 TWh in 2022, leaving it only marginally behind wind.",
+      "Hydroelectric power followed a very different pattern. Its contribution barely altered, inching up from 40 TWh to just 45 TWh over the twelve years. As a result, a source that had been comfortably the largest in 2010 finished the period in third place, well behind both wind and solar."
+    ]
+  },
+  {
+    id: "t1-bar-employment", task: "task1", type: "Bar Chart",
+    title: "Workforce by Sector in Four Countries (2022)",
+    img: "assets/task1/bar-employment-sectors.png",
+    alt: "Grouped bar chart comparing the percentage of the workforce in agriculture, industry and services across four countries in 2022",
+    difficulty: "Foundation", time: "20 min",
+    desc: "Compare three employment sectors across four countries — find the patterns, not every bar.",
+    prompt: "The bar chart shows the percentage of the workforce employed in agriculture, industry and services in four countries (A, B, C and D) in 2022. Summarise the information by selecting and reporting the main features, and make comparisons where relevant. Write at least 150 words.",
+    learn: "Grouped bar charts reward grouping in your writing too. Look across the countries for the biggest contrasts — which country is services-led, which is agriculture-led — rather than describing all twelve bars. Industry is fairly even everywhere, so the real story is agriculture versus services.",
+    analyse: ["Services dominated in Country A (70%) but were lowest in Country C (30%).", "Country C was the only agriculture-led economy (40%), while agriculture was tiny in Country A (5%).", "Industry was the most consistent sector, ranging only from 25% to 35% across all four countries.", "Countries B and D sat in the middle, with a fairly even spread across the three sectors."],
+    plan: ["Introduction: paraphrase (workforce shares in three sectors, four countries, 2022).", "Overview: services was generally the largest employer, but the balance varied sharply — A was service-led while C was agriculture-led; industry was the steadiest sector.", "Body 1: the contrast between A (service-led) and C (agriculture-led) — the two extremes.", "Body 2: B and D — more balanced — and the consistency of industry across all four."],
+    vocab: ["the largest proportion of workers", "employed in the services sector", "agriculture accounted for just 5%", "by far the highest share", "relatively evenly distributed", "industry varied little, from 25% to 35%"],
+    tip: "State the unit early (percentages of the workforce) and group countries by their dominant sector. Avoid listing every figure; compare the extremes.",
+    model: [
+      "The bar chart compares the proportion of the labour force working in agriculture, industry and services across four countries, labelled A to D, in 2022.",
+      "Overall, the services sector employed the largest share of workers in most countries, although the balance between sectors differed considerably. Country A was strongly service-oriented, whereas Country C relied far more heavily on agriculture, and industry remained the most stable sector throughout.",
+      "The clearest contrast lay between Countries A and C. In Country A, services accounted for a dominant 70% of employment, with agriculture employing a mere 5% and industry the remaining 25%. Country C showed almost the reverse priorities: agriculture was its largest sector at 40%, while services fell to just 30%.",
+      "Countries B and D occupied a middle ground, with their workforces spread more evenly across the three sectors. Services led in both, at 50% and 40% respectively, followed by industry. Indeed, industry proved the most consistent category of all, varying only between 25% and 35% across the four economies."
+    ]
+  },
+  {
+    id: "t1-pie-water", task: "task1", type: "Pie Chart",
+    title: "Household Water Use by Activity (2000 vs 2020)",
+    img: "assets/task1/pie-water-use.png",
+    alt: "Two pie charts showing how household water was used across five activities in 2000 and 2020",
+    difficulty: "Core", time: "20 min",
+    desc: "Two pies, one story — which slice grew, which shrank, and what held steady.",
+    prompt: "The two pie charts show how an average household used water across five activities in 2000 and 2020. Summarise the information by selecting and reporting the main features, and make comparisons where relevant. Write at least 150 words.",
+    learn: "With paired pie charts the examiner wants the change between them, not a tour of each slice. Identify the largest and smallest categories, then the movers: which share rose, which fell, and which stayed put. Group these rather than describing all five slices twice.",
+    analyse: ["Bathing and showering was the largest use in both years and grew from 30% to 35%.", "The toilet's share fell most, from 30% to 22%, dropping from joint-largest to third.", "Laundry rose modestly (15% to 18%), while kitchen (15%) and garden (10%) use were unchanged.", "By 2020 bathing was clearly the single biggest use, having pulled ahead of the toilet."],
+    plan: ["Introduction: paraphrase (household water use across five activities, 2000 vs 2020).", "Overview: bathing and showering was the dominant and growing use, while the toilet's share fell sharply; the smaller categories changed little.", "Body 1: the two largest uses — bathing (up) and toilet (down) — and how the gap opened.", "Body 2: the stable categories — laundry's small rise, kitchen and garden unchanged."],
+    vocab: ["accounted for the largest share", "made up just under a third", "fell by eight percentage points", "rose slightly to 18%", "remained constant at 15%", "the smallest category throughout"],
+    tip: "Use fractions for variety — about a third, a fifth — and never describe all five slices in order for both years. Group the risers, the faller, and the unchanged.",
+    model: [
+      "The two pie charts illustrate the way in which a typical household divided its water consumption among five activities in 2000 and 2020.",
+      "Overall, bathing and showering was the leading use of water in both years and increased its share, whereas the proportion used for flushing toilets declined noticeably. The remaining categories saw only minor changes.",
+      "In 2000, bathing and showering and the toilet were jointly the largest uses, each consuming 30% of household water. Over the following two decades the two diverged: bathing rose to 35% and became the single biggest use, while the toilet's share fell to 22%, most probably reflecting more efficient appliances.",
+      "Among the smaller categories, the share taken by laundry edged up from 15% to 18%. Water used in the kitchen and for the garden, by contrast, did not change at all, remaining at 15% and 10% respectively and leaving the garden as the smallest use in both years."
+    ]
+  },
+  {
+    id: "t1-table-internet", task: "task1", type: "Table",
+    title: "Household Internet Access by Region (2010–2020)",
+    img: "assets/task1/table-internet-access.png",
+    alt: "Table showing the percentage of households with internet access in five regions in 2010, 2015 and 2020",
+    difficulty: "Core", time: "20 min",
+    desc: "Five regions, three years — find the leader, the laggard, and the fastest catch-up.",
+    prompt: "The table shows the percentage of households with internet access in five regions in 2010, 2015 and 2020. Summarise the information by selecting and reporting the main features, and make comparisons where relevant. Write at least 150 words.",
+    learn: "Tables give you no shape, so you must impose one. Scan for the highest and lowest figures and the biggest changes. Here every region rose, so the universal increase belongs in the overview; the detail is about who led, who lagged, and where the gap narrowed.",
+    analyse: ["Access rose in every region across the decade — the universal trend for the overview.", "The West led throughout, from 55% in 2010 to 90% in 2020.", "Central started lowest (25%) and stayed lowest (68%), but saw one of the largest increases.", "The gap between the highest and lowest region narrowed from 30 points (55 vs 25) to 22 points (90 vs 68)."],
+    plan: ["Introduction: paraphrase (household internet access in five regions, 2010, 2015 and 2020).", "Overview: access increased everywhere; the West remained the leader and Central the laggard, but the gap between regions narrowed.", "Body 1: the leaders — West and North — with their figures.", "Body 2: the lower regions — South, East and especially Central — and their rapid catch-up."],
+    vocab: ["access increased across all regions", "rose from 55% to 90%", "the highest figure throughout", "by contrast, the lowest level of access", "the gap narrowed over the decade", "more than doubled / nearly tripled"],
+    tip: "Don't read the table row by row. Choose the standout figures — the highest, the lowest, the biggest jump — and compare them. State the unit (percentage of households).",
+    model: [
+      "The table compares the percentage of households able to access the internet in five regions at three points in time: 2010, 2015 and 2020.",
+      "Overall, household internet access expanded considerably in every region over the decade. The West consistently recorded the highest level of connectivity and the Central region the lowest, although the gap between the regions gradually narrowed.",
+      "The West was the clear leader throughout, with access rising from 55% of households in 2010 to 90% by 2020. The North followed a similar path, climbing from 45% to 84%, so that by the end of the period the two most connected regions were approaching universal access.",
+      "The remaining regions began from a lower base but advanced rapidly. The East increased from 38% to 76%, and the South from 30% to 70%. The Central region, the least connected throughout, nonetheless saw one of the steepest rises, from just 25% to 68% — almost tripling and helping to close the regional divide."
+    ]
+  },
+  {
+    id: "t1-process-glass", task: "task1", type: "Process",
+    title: "The Glass Bottle Recycling Process",
+    img: "assets/task1/process-glass-recycling.png",
+    alt: "Diagram of the six stages of glass bottle recycling, from collection to moulding new bottles",
+    difficulty: "Core", time: "20 min",
+    desc: "Describe a six-stage manufacturing cycle using sequence markers and the passive voice.",
+    prompt: "The diagram shows the process by which used glass bottles are recycled into new ones. Summarise the information by selecting and reporting the main features. Write at least 150 words.",
+    learn: "Process diagrams test sequencing and the passive voice, not data. Your overview states where the process begins and ends and how many stages it has. Then describe each stage in order, naming the inputs (sand, soda ash) and any change of state (solid cullet to molten glass).",
+    analyse: ["A linear, man-made process with six clear stages, beginning with collection and ending with new bottles.", "Inputs to mention: sand and soda ash are added at the melting stage.", "A key change of state: crushed glass (cullet) becomes molten in the furnace, then is reshaped.", "The process is cyclical in spirit — the new bottles return to use and can be collected again."],
+    plan: ["Introduction: paraphrase (how used glass bottles are recycled into new ones).", "Overview: a linear six-stage process beginning with collection and ending with newly moulded bottles, requiring heat and raw materials at the melting stage.", "Body 1: early stages — collection, sorting by colour, and crushing into cullet.", "Body 2: later stages — cleaning, melting with sand and soda ash, and moulding into new bottles."],
+    vocab: ["is collected / is sorted / is crushed", "at the first / next / final stage", "once the glass has been cleaned", "the resulting cullet", "is melted in a furnace", "is then moulded into new bottles"],
+    tip: "Use the passive voice and sequencing language, and stay neutral — describe the stages, never explain why recycling is good or add instructions.",
+    model: [
+      "The diagram illustrates the stages involved in recycling used glass bottles so that they can be turned into new ones.",
+      "Overall, this is a linear, man-made process made up of six main stages. It begins with the collection of used bottles and ends with the moulding of new ones, with heat and raw materials required at the central melting stage.",
+      "At the first stage, used bottles are collected from households and bottle banks and taken to a recycling facility. There they are sorted according to their colour, after which the sorted glass is crushed into small fragments known as cullet.",
+      "Next, the cullet is cleaned so that labels and other impurities are removed. The clean cullet is then fed into a furnace, where it is melted together with sand and soda ash at a very high temperature. Finally, the molten glass is moulded into new bottles and left to cool, ready to be used once again."
+    ]
   }
+
 ];
 
 /* ==========================================================================
@@ -292,7 +393,91 @@ const T2_TYPES = [
       "Other factors therefore deserve equal weight. The first is fulfilment: a person who loves their work and grows through it has succeeded in a way no salary records. The second is contribution — a nurse or a volunteer who improves other lives has a strong claim to success regardless of income. Finally, relationships are perhaps the most reliable indicator of all; long-term studies of wellbeing consistently find that people with close family and friendships rate their lives as most successful, whatever their bank balance.",
       "In conclusion, money is a convenient but shallow measure of success. Genuine success is better judged by a combination of financial security, personal fulfilment, service to others and the quality of one's relationships."
     ]
+  },
+  {
+    id: "t2-opinion-ai-education", task: "task2", type: "Opinion", title: "Opinion essay — AI tools in education",
+    difficulty: "Core", time: "40 min",
+    desc: "Take a clear stance on AI in learning and defend it consistently.",
+    prompt: "Some people believe that artificial intelligence tools, such as writing and homework assistants, should be freely used by students in schools and universities. To what extent do you agree or disagree? Give reasons for your answer and include any relevant examples from your own knowledge or experience. Write at least 250 words.",
+    structure: ["Introduction — paraphrase the topic and state your position clearly.", "Body 1 — your first reason, explained and supported with an example.", "Body 2 — a concession followed by your rebuttal, or a second reason.", "Conclusion — restate your position; add no new ideas."],
+    thesis: "Decide your position before writing and make it visible in the introduction. 'To what extent' allows a balanced answer — for example, supporting AI as a learning aid but not as a replacement for the student's own work — but the balance must be precise, not a fence-sitting 'both sides have points'.",
+    mistakes: ["Delaying your opinion until the conclusion.", "Listing every possible advantage and disadvantage without committing to a view.", "Describing what AI tools are instead of arguing whether they should be used.", "Supporting claims with invented statistics rather than realistic examples."],
+    language: ["I would argue that…", "used responsibly, such tools can…", "there is a clear distinction between… and…", "a notable risk, however, is that…", "on balance, I believe that…"],
+    model: [
+      "Artificial intelligence tools that can draft essays and solve problems are now widely available to students, prompting debate over whether their use should be unrestricted. While I accept that these tools have genuine educational value, I believe they should be guided rather than used entirely freely.",
+      "On the one hand, AI assistants can be powerful aids to learning. Used well, they offer instant explanations, model good writing and help students who lack access to private tutoring. A learner struggling with essay structure, for instance, can ask an AI tool to demonstrate how an argument is organised and then apply that pattern to their own work, accelerating progress that might otherwise stall.",
+      "On the other hand, unrestricted use carries a serious risk: students may submit AI-generated work as their own and never develop the underlying skills. If a teenager relies on a tool to write every essay, they will reach examinations — where no such help exists — unable to plan or compose independently. The convenience of the tool would, in this case, undermine the very purpose of education.",
+      "For this reason, the sensible approach is supervised use rather than a free-for-all. Schools can allow AI for practice, feedback and revision while requiring that final assessed work be produced under controlled conditions. This preserves the benefits of the technology without allowing it to replace genuine learning.",
+      "In conclusion, although AI tools clearly enrich education, I disagree that they should be used entirely freely. A framework that encourages them as learning aids, yet protects independent skill development, offers students the best of both worlds."
+    ]
+  },
+  {
+    id: "t2-discussion-remote-work", task: "task2", type: "Discussion", title: "Discussion essay — Working from home vs the office",
+    difficulty: "Core", time: "40 min",
+    desc: "Discuss both views fairly, then give and justify your own opinion.",
+    prompt: "Some people believe that employees are more productive when they work from home, while others think they achieve more in a traditional office. Discuss both views and give your own opinion. Write at least 250 words.",
+    structure: ["Introduction — paraphrase both views and state your opinion.", "Body 1 — the first view, explained fairly with an example.", "Body 2 — the second view, explained fairly with an example.", "Conclusion — restate your own position; no new ideas."],
+    thesis: "A discussion essay requires three things: present view one, present view two, and give your own opinion. Make your opinion clear in both the introduction and the conclusion, and devote a balanced paragraph to each view rather than arguing only one side.",
+    mistakes: ["Explaining one view fully and dismissing the other in a single line.", "Forgetting to give your own opinion, which the question explicitly requires.", "Presenting both views but never explaining why people hold them.", "Treating 'discuss' as 'argue' and writing a one-sided essay."],
+    language: ["Those who favour home working argue that…", "Supporters of the office environment, by contrast, point out that…", "there is some merit in both positions", "in my own view, however,…", "ultimately, the ideal arrangement may combine both."],
+    model: [
+      "Whether people work more effectively at home or in an office has become a common debate as remote working has spread. This essay will consider both perspectives before arguing that a balance between the two tends to produce the best results.",
+      "Those who favour working from home emphasise freedom from distractions and commuting. Without the noise of an open-plan office or hours lost in traffic, many employees can concentrate for longer and use the saved time productively. A software developer, for example, may complete complex tasks far more quickly in the quiet of a home study than in a busy workplace full of interruptions.",
+      "Supporters of the traditional office, however, point to the value of direct collaboration. Spontaneous conversations, quick clarifications and a clear separation between work and home life are harder to achieve remotely. New employees in particular often learn fastest by observing colleagues and asking questions in person, something a video call cannot fully replicate.",
+      "In my opinion, the productivity of each arrangement depends on the nature of the work. Tasks requiring deep, individual concentration are usually better suited to home, whereas teamwork, training and creative discussion benefit from a shared space. A hybrid model, allowing employees to choose according to the task, therefore seems the most sensible solution.",
+      "In conclusion, while both home and office working have clear strengths, I believe neither is universally superior. Allowing employees to combine the two is the most effective way to maximise productivity."
+    ]
+  },
+  {
+    id: "t2-advdis-online-learning", task: "task2", type: "Advantages / Disadvantages", title: "Advantages and disadvantages — Online university courses",
+    difficulty: "Foundation", time: "40 min",
+    desc: "Weigh the benefits against the drawbacks and decide which side outweighs.",
+    prompt: "More and more universities now offer entire degree courses online rather than in person. Do the advantages of this development outweigh the disadvantages? Write at least 250 words.",
+    structure: ["Introduction — paraphrase the trend and state which side outweighs.", "Body 1 — the main advantage(s), developed with an example.", "Body 2 — the main disadvantage(s), developed with an example.", "Conclusion — confirm your judgement on which side outweighs."],
+    thesis: "'Do the advantages outweigh the disadvantages?' demands a verdict, not just a list. State your judgement in the introduction and confirm it in the conclusion, and make the paragraph that supports your verdict the stronger of the two.",
+    mistakes: ["Listing benefits and drawbacks without ever saying which side outweighs.", "Giving equal weight to both sides when your thesis claims one outweighs the other.", "Turning the essay into an opinion piece on whether online study is 'good'.", "Including several thin points instead of two well-developed ones."],
+    language: ["the principal advantage is that…", "this flexibility allows students to…", "a significant drawback, however, is…", "this benefit comes at a cost", "taken together, the advantages outweigh…"],
+    model: [
+      "It is increasingly common for universities to deliver complete degrees online instead of on campus. Although this shift brings certain disadvantages, I believe its advantages clearly outweigh them, mainly because of the access it provides.",
+      "The greatest benefit of online degrees is flexibility of access. Students who live far from a campus, work full-time or have family responsibilities can now study for qualifications that were once out of reach. A parent in a rural area, for instance, can complete a degree in the evenings without relocating or abandoning their job, opening opportunities that simply did not exist a generation ago. Online courses are also often cheaper, since universities save on physical facilities.",
+      "Nevertheless, there are real drawbacks. Online learning demands strong self-discipline, and students who lack motivation may fall behind without the structure of timetabled classes. The reduced contact with tutors and peers can also weaken understanding and leave learners feeling isolated, particularly on practical or discussion-based courses.",
+      "However, these disadvantages can largely be managed. Well-designed online programmes now include live seminars, deadlines and online communities that restore much of the structure and interaction of a campus. The difficulties therefore stem more from poor course design than from online study itself.",
+      "In conclusion, although online degrees require discipline and can feel isolating, the access and flexibility they offer are transformative. On balance, the advantages of this development clearly outweigh its disadvantages."
+    ]
+  },
+  {
+    id: "t2-problem-traffic", task: "task2", type: "Problem / Solution", title: "Problem and solution — Traffic congestion in cities",
+    difficulty: "Core", time: "40 min",
+    desc: "Identify the main causes, then propose realistic, well-explained solutions.",
+    prompt: "Many large cities around the world suffer from serious traffic congestion. What are the main causes of this problem, and what measures could be taken to solve it? Write at least 250 words.",
+    structure: ["Introduction — paraphrase the problem and signal that you will discuss causes and solutions.", "Body 1 — the main cause(s), explained with an example.", "Body 2 — the main solution(s), explained and linked to the causes.", "Conclusion — summarise the key cause and solution; no new ideas."],
+    thesis: "A problem/solution essay must answer both parts fully and keep them connected: your solutions should address the causes you identified. Don't spend the whole essay on causes and rush the solutions — balance the two parts.",
+    mistakes: ["Answering only one part of the question (causes or solutions, not both).", "Offering solutions that do not match the causes you described.", "Describing the problem at length but giving vague solutions like 'the government should do something'.", "Failing to explain how each solution would actually work."],
+    language: ["a major cause of this problem is…", "this is largely due to…", "one effective measure would be to…", "if cities invested in…, then…", "such a policy would help to reduce…"],
+    model: [
+      "Traffic congestion is a daily reality in many of the world's largest cities, wasting time and worsening air quality. This essay will examine the principal causes of the problem before suggesting measures that could ease it.",
+      "The main cause of congestion is the sheer growth in private car ownership. As cities expand and incomes rise, more residents buy cars, yet road networks cannot grow at the same pace. This imbalance is made worse by inadequate public transport: where buses and trains are slow, unreliable or limited, people have little choice but to drive, even for short journeys. The result is roads carrying far more vehicles than they were designed for, especially during rush hours.",
+      "The most effective solution is therefore to make public transport a genuine alternative to the car. By investing in fast, frequent and affordable metro and bus services, cities can persuade commuters to leave their vehicles at home, as has happened in places with well-developed transport networks. This can be reinforced by measures that discourage driving in the busiest areas, such as congestion charges, which make city-centre travel by car more expensive and fund further improvements to public transport in return.",
+      "In conclusion, urban congestion is driven mainly by rising car use combined with weak public transport. By improving alternatives to the car and discouraging unnecessary driving, cities can reduce the volume of traffic and create cleaner, more efficient streets."
+    ]
+  },
+  {
+    id: "t2-twopart-tech-communication", task: "task2", type: "Two-part question", title: "Two-part question — Technology and communication",
+    difficulty: "Challenge", time: "40 min",
+    desc: "Answer both questions directly and develop each with reasons and examples.",
+    prompt: "Today, people communicate more and more through digital devices rather than face to face. Why is this the case? Is it a positive or negative development? Give reasons for your answer and include any relevant examples from your own knowledge or experience. Write at least 250 words.",
+    structure: ["Introduction — paraphrase the topic and signal that you will answer both questions.", "Body 1 — answer the first question (why this is happening), with reasons and an example.", "Body 2 — answer the second question (positive or negative), with your judgement and support.", "Conclusion — summarise your answers to both questions."],
+    thesis: "A two-part question gives you two direct questions — you must answer both, and the second usually requires your own opinion. Plan one body paragraph for each question, and make sure neither part is left thin or ignored.",
+    mistakes: ["Answering only one of the two questions.", "Giving a vague answer to 'positive or negative' without committing.", "Writing about technology in general instead of the specific questions asked.", "Spending too long on the first question and rushing the second."],
+    language: ["one key reason for this shift is…", "this is largely because…", "on the whole, I regard this as a positive development", "while there are drawbacks, the benefits…", "provided that it is used wisely,…"],
+    model: [
+      "It is increasingly common for people to interact through phones, messaging apps and social media rather than in person. This essay will explain why this change has occurred and argue that, despite some drawbacks, it is largely a positive development.",
+      "The main reason for the shift is the sheer convenience that digital communication offers. Devices allow people to stay in contact instantly, regardless of distance or time zone, and at almost no cost. A worker who has emigrated, for example, can speak to their family every day through video calls, something that would once have required expensive international phone calls. The spread of smartphones and cheap internet access has simply made digital contact the easiest and fastest option for most people.",
+      "In my view, this development is mainly positive. Digital communication strengthens relationships that distance would otherwise weaken, enables remote work and study, and gives isolated or housebound individuals a vital link to others. There are, admittedly, concerns that it may reduce the quality of face-to-face interaction; however, these problems arise from how the technology is used rather than from the technology itself, and for most people digital tools supplement personal contact rather than replace it entirely.",
+      "In conclusion, people increasingly rely on digital communication chiefly because it is convenient, instant and inexpensive. While it carries some risks, I believe it is a positive development overall, provided it is used to enhance rather than replace real relationships."
+    ]
   }
+
 ];
 
 /* ==========================================================================
@@ -445,6 +630,57 @@ const CLINIC_EXTRA = [
   }
 ];
 CLINIC.push.apply(CLINIC, CLINIC_EXTRA);
+
+/* --- Expanded practice clinics (Overview, Comparison, Thesis, PEEL, Upgrade) --- */
+const CLINIC_PRACTICE = [
+  {
+    title: "Task 1 Overview Clinic",
+    problem: "The overview lists individual figures or just repeats the introduction, instead of summarising the two or three main trends. Without a clear overview, Task Achievement is capped however accurate the detail is.",
+    weak: "Overall, sales were 200 in January, then 350 in March, and they reached 500 by June, while costs were lower.",
+    better: "Overall, sales rose steadily throughout the period and consistently exceeded costs, with the gap between the two widening towards the end.",
+    tip: "An overview names directions and rankings — up, down, largest, smallest — with no specific numbers. Begin it with 'Overall,' and write it after studying the whole visual.",
+    practice: "Write a one-sentence overview for a bar chart where recycling rates in four countries all rise between 2010 and 2020, and Germany is highest in both years.",
+    suggested: "Overall, recycling rates increased in all four countries over the decade, with Germany maintaining the highest rate throughout."
+  },
+  {
+    title: "Task 1 Comparison Clinic",
+    problem: "Each figure is reported in its own sentence, so the writing reads like a list and never demonstrates the comparison the task demands.",
+    weak: "In 2020, France produced 40 units. Germany produced 65 units. Spain produced 30 units. Italy produced 55 units.",
+    better: "Germany was the largest producer in 2020 at 65 units, well ahead of Italy and France, while Spain produced the least, at just 30 units.",
+    tip: "Group related figures and compare within the group using words like more than, twice as much as, the highest, the lowest. One comparing sentence is worth three listing sentences.",
+    practice: "Combine into one comparing sentence: 'Online sales were 70%. In-store sales were 30%.'",
+    suggested: "Online sales accounted for the majority of purchases at 70%, more than double the 30% made in store."
+  },
+  {
+    title: "Task 2 Thesis Statement Clinic",
+    problem: "The introduction announces the topic but hides the writer's opinion, so the examiner cannot tell what position the essay will defend — a problem for Task Response.",
+    weak: "This essay will discuss the advantages and disadvantages of working from home and look at both sides of the issue.",
+    better: "While working from home offers clear flexibility, I believe its disadvantages for collaboration and career growth ultimately outweigh these benefits.",
+    tip: "Your thesis must state your actual position, not merely promise to 'discuss'. Put it in the last sentence of the introduction and keep it consistent to the conclusion.",
+    practice: "Turn this into a clear thesis: 'Some people think university should be free and some people think students should pay.'",
+    suggested: "Although free university education would widen access, I would argue that students should contribute to the cost, provided that loans protect the poorest applicants."
+  },
+  {
+    title: "Task 2 Paragraph Development Clinic",
+    problem: "A main idea is stated but never explained or illustrated, so the paragraph stays thin and the argument is unconvincing.",
+    weak: "Public transport is good for cities. It helps a lot. Cities should invest in it.",
+    better: "Investing in public transport benefits cities because it reduces road congestion. When reliable metro and bus services exist, commuters leave their cars at home, as seen in cities like Singapore, where heavy investment has eased traffic and cut emissions. This shows that strong public transport directly improves urban life.",
+    tip: "Build each paragraph as Point → Explain (why) → Example (specific) → Link (back to the question). A claim without explanation and an example earns little credit.",
+    practice: "Develop this point into 3–4 sentences using explain–example–link: 'Reading improves vocabulary.'",
+    suggested: "Reading widely improves vocabulary because readers repeatedly meet new words in context. A student who reads novels and newspapers, for instance, absorbs far more varied language than one who relies only on textbooks, and gradually begins to use those words naturally. In this way, regular reading steadily strengthens a learner's command of vocabulary."
+  },
+  {
+    title: "Grammar & Vocabulary Upgrade Clinic",
+    problem: "Sentences are simple and repetitive, with informal wording and small grammar slips, which limits both Lexical Resource and Grammatical Range.",
+    weak: "Lots of people think pollution is a really big problem and it is bad and the government should do something about pollution fast.",
+    better: "Many people regard pollution as a serious problem, and it is widely argued that governments should take urgent action to address it.",
+    tip: "Replace informal words (lots of → many; really big → serious), vary your sentence structures, and avoid repeating the same noun — use referencing such as 'it' or 'this issue' instead.",
+    practice: "Upgrade this sentence: 'Kids these days use phones a lot and it is bad for them and they don't talk to people.'",
+    suggested: "Young people today rely heavily on their phones, which can be detrimental to their wellbeing and reduce the amount of face-to-face interaction they have."
+  }
+];
+CLINIC.push.apply(CLINIC, CLINIC_PRACTICE);
+
 
 /* Difficulty → estimated band target (used on cards and analytics). */
 const BAND_TARGET = { Foundation: "5.5–6.0", Core: "6.0–6.5", Challenge: "6.5–7.5" };
