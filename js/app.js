@@ -1558,17 +1558,37 @@ const FeedbackService = {
     var url = String(cfg.supabaseUrl).replace(/\/+$/, "") + "/functions/v1/writing-feedback";
     var task = sub.task || TaskService.byId(sub.taskId) || {};
     var self = this;
+
+    /* PRE-SCORING GATE (client-side, authoritative). The model is generous,
+       so we decide non-attempt / band-cap here using the task prompt — which
+       the model never sees in full — before and after the network call. */
+    var AV = (typeof window !== "undefined" && window.AttemptValidator) || null;
+    var minWords = TaskService.minWords(sub.kind);
+    var gate = AV ? AV.analyzeAttempt(sub.text || "", task.prompt || "", minWords, sub.kind) : null;
+
+    // Hard non-attempt: never bill the model — return a forced Band 0 locally.
+    if (gate && gate.nonAttempt) {
+      var zero = buildLocalDiagnostic(sub.text || "", sub.kind, task, sub.checklist || {}, sub.words);
+      zero.source = "gate"; // not "groq": this is a rule-based decision
+      return Promise.resolve(zero);
+    }
+
     var ctrl = (typeof AbortController !== "undefined") ? new AbortController() : null;
     var to = ctrl ? setTimeout(function () { ctrl.abort(); }, 22000) : null;
     return fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", "apikey": cfg.supabaseAnonKey, "Authorization": "Bearer " + cfg.supabaseAnonKey },
-      body: JSON.stringify({ text: sub.text || "", kind: sub.kind, taskType: sub.type || task.type || "", minWords: TaskService.minWords(sub.kind) }),
+      body: JSON.stringify({ text: sub.text || "", prompt: task.prompt || "", kind: sub.kind, taskType: sub.type || task.type || "", minWords: minWords }),
       signal: ctrl ? ctrl.signal : undefined
     })
       .then(function (r) { return r.ok ? r.json() : null; })
       .catch(function () { return null; })
-      .then(function (ai) { if (to) clearTimeout(to); return self.validAI(ai) ? ai : null; });
+      .then(function (ai) {
+        if (to) clearTimeout(to);
+        if (!self.validAI(ai)) return null;
+        // Defense in depth: even a valid AI result is clamped to the gate cap.
+        return (AV && gate) ? AV.applyGate(ai, gate, sub.kind) : ai;
+      });
   },
   /* Fetch remote feedback and, if valid, overwrite the stored submission's .ai. */
   enhanceWithAI: function (submissionId) {
@@ -1597,9 +1617,22 @@ function tokenizeWordsLower(text) {
 }
 function clampBand(b) { return Math.max(4, Math.min(8.5, Math.round(b * 2) / 2)); }
 
+/* Resolve the gatekeeper module whether we are in the browser or a test. */
+function _attemptValidator() {
+  if (typeof window !== "undefined" && window.AttemptValidator) return window.AttemptValidator;
+  if (typeof AttemptValidator !== "undefined") return AttemptValidator;
+  return null;
+}
+
 function buildLocalDiagnostic(text, kind, task, checklist, wordsArg) {
   var words = typeof wordsArg === "number" ? wordsArg : countWords(text);
   var minWords = TaskService.minWords(kind);
+
+  /* PRE-SCORING GATE — runs before the heuristic scorer. A copied/repeated
+     prompt or a non-attempt is forced to Band 0 (or capped) regardless of
+     what the criterion heuristics would otherwise produce. */
+  var _AV = _attemptValidator();
+  var _gate = _AV ? _AV.analyzeAttempt(text, (task && task.prompt) || "", minWords, kind) : null;
   var sentences = tokenizeSentences(text);
   var paras = text.split(/\n\s*\n/).map(function (p) { return p.trim(); }).filter(Boolean);
   var lower = " " + text.toLowerCase() + " ";
@@ -1751,7 +1784,7 @@ function buildLocalDiagnostic(text, kind, task, checklist, wordsArg) {
   var teacherSummary = "Diagnostic band ~" + estimatedBand.toFixed(1) + " (TA/TR " + taScore.toFixed(1) + ", CC " + ccScore.toFixed(1) + ", LR " + lrScore.toFixed(1) + ", GRA " + grScore.toFixed(1) + "). " +
     words + " words, " + paras.length + " paragraphs, " + linkUsed.length + " linkers" + (informalFound.length ? ", informal register flags" : "") + (repetitionHeavy ? ", repetition of “" + topWord + "”" : "") + ". Weakest criterion: " + weakest[0] + ".";
 
-  return {
+  var diagnostic = {
     kind: "preliminary",
     label: "Preliminary Writing Diagnostic — automated, not a live AI examiner",
     generatedAt: nowISO(),
@@ -1773,6 +1806,9 @@ function buildLocalDiagnostic(text, kind, task, checklist, wordsArg) {
     teacherSummary: teacherSummary,
     studentSummary: studentSummary
   };
+
+  /* Apply the gate (forces Band 0 for a non-attempt, or clamps to a cap). */
+  return (_AV && _gate) ? _AV.applyGate(diagnostic, _gate, kind) : diagnostic;
 }
 
 /* ==========================================================================
@@ -2916,8 +2952,8 @@ function clearAIPending(container) {
 function renderFeedbackThenEnhance(container, submission) {
   renderFeedback(container, submission.ai);
   if (!container || !FeedbackService.aiAvailable()) return;
-  // Already upgraded by Groq — don't re-bill the model on every reopen/detail view.
-  if (submission.ai && submission.ai.source === "groq") return;
+  // Already decided by Groq or the rule-based gate — don't re-bill the model.
+  if (submission.ai && (submission.ai.source === "groq" || submission.ai.source === "gate")) return;
   markAIPending(container);
   FeedbackService.enhanceWithAI(submission.id).then(function (ai) {
     if (!container) return;
@@ -2925,11 +2961,57 @@ function renderFeedbackThenEnhance(container, submission) {
     else clearAIPending(container);
   });
 }
+function gateTeacherBlock(g) {
+  if (!g) return "";
+  return '<div class="fb-block fb-gate-teacher" style="border:1px solid var(--line,#d9d2c4);border-radius:10px;padding:12px 14px;margin-top:10px;background:rgba(0,0,0,.02)">' +
+    '<h4 style="margin:0 0 6px">Teacher / admin — attempt analysis</h4>' +
+    '<table class="fb-gate-table" style="width:100%;border-collapse:collapse;font-size:.92em">' +
+    '<tr><td style="padding:2px 8px 2px 0;opacity:.75">Total submitted words</td><td style="text-align:right;font-weight:600">' + g.submittedWords + '</td></tr>' +
+    '<tr><td style="padding:2px 8px 2px 0;opacity:.75">Estimated copied prompt words</td><td style="text-align:right;font-weight:600">' + g.copiedWords + ' (' + g.copiedPct + '%)</td></tr>' +
+    '<tr><td style="padding:2px 8px 2px 0;opacity:.75">Estimated original words</td><td style="text-align:right;font-weight:600">' + g.originalWords + '</td></tr>' +
+    '<tr><td style="padding:2px 8px 2px 0;opacity:.75">Repetition</td><td style="text-align:right;font-weight:600">' + g.repetitionPct + '%</td></tr>' +
+    '<tr><td style="padding:2px 8px 2px 0;opacity:.75">Final scoring decision</td><td style="text-align:right;font-weight:600">' + esc(g.decision) + '</td></tr>' +
+    '</table>' +
+    '<p style="margin:8px 0 0;font-size:.9em;opacity:.85"><strong>Reason:</strong> ' + esc((g.reasons || []).join(" ")) + '</p>' +
+    '</div>';
+}
+
 function renderFeedback(container, fb) {
   if (!container) return;
   var c = fb.criteria;
+
+  // Visible warning banner for any gated decision (non-attempt or band cap).
+  var banner = "";
+  if (fb.nonAttempt) {
+    banner = '<div class="fb-warning" role="alert" style="display:flex;gap:10px;align-items:flex-start;border:1px solid #c0392b;background:#fdecea;color:#7b241c;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-weight:600">' +
+      '<span aria-hidden="true">\u26A0\uFE0F</span><span>Non-attempt detected: copied / repeated prompt text. Copied prompt words are not counted in IELTS Writing.</span></div>';
+  } else if (fb.bandCap != null) {
+    banner = '<div class="fb-warning" role="alert" style="display:flex;gap:10px;align-items:flex-start;border:1px solid #b9770e;background:#fef5e7;color:#7e5109;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-weight:600">' +
+      '<span aria-hidden="true">\u26A0\uFE0F</span><span>Score capped at Band ' + fb.bandCap + '. ' + esc((fb.gate && fb.gate.reasons && fb.gate.reasons[0]) || "Limited original content.") + '</span></div>';
+  }
+
+  // Non-attempt: a focused report, not normal essay feedback.
+  if (fb.nonAttempt) {
+    container.innerHTML =
+      '<article class="panel feedback-panel">' +
+        banner +
+        '<div class="fb-head"><div><span class="fb-tag">Response not assessable</span>' +
+        '<h3 class="fb-title">Overall band <strong>0.0</strong></h3></div>' +
+        '<p class="fb-disclaimer">' + esc(fb.label || "Automated check") + '. Your teacher\'s review is the authoritative score.</p></div>' +
+        '<div class="crit-row">' + [c.taskAchievement, c.coherenceCohesion, c.lexicalResource, c.grammaticalRange].map(bandChip).join("") + '</div>' +
+        '<div class="fb-block fb-bad"><h4>Why this cannot be scored</h4><ul>' +
+          (fb.weaknesses || []).map(function (s) { return "<li>" + esc(s) + "</li>"; }).join("") + '</ul></div>' +
+        '<div class="fb-block fb-next"><h4>What to do next</h4><p>' + esc(fb.nextRecommendation || "") + '</p></div>' +
+        gateTeacherBlock(fb.gate) +
+        '<details class="fb-meta"><summary>Diagnostic detail</summary><p>' + esc(fb.studentSummary || "") + '</p>' +
+          '<p class="fb-teacher"><strong>Teacher view:</strong> ' + esc(fb.teacherSummary || "") + '</p></details>' +
+      '</article>';
+    return;
+  }
+
   container.innerHTML =
     '<article class="panel feedback-panel">' +
+      banner +
       '<div class="fb-head"><div><span class="fb-tag">' + (fb.source === "groq" ? "AI examiner feedback" : "Preliminary Writing Diagnostic") + '</span><h3 class="fb-title">Estimated band <strong>' + fb.estimatedBand.toFixed(1) + '</strong></h3></div>' +
       '<p class="fb-disclaimer">' + esc(fb.label) + '. This is an automated diagnostic to guide practice — your teacher\'s review is the authoritative score.</p></div>' +
       '<div class="crit-row">' + [c.taskAchievement, c.coherenceCohesion, c.lexicalResource, c.grammaticalRange].map(bandChip).join("") + '</div>' +
@@ -2944,6 +3026,7 @@ function renderFeedback(container, fb) {
         '<div class="fb-block"><h4>Grammar upgrades</h4><ul>' + fb.grammarUpgrades.map(function (g) { return "<li>" + esc(g) + "</li>"; }).join("") + '</ul></div>' +
       '</div>' +
       '<div class="fb-block fb-next"><h4>Recommended next step</h4><p>' + esc(fb.nextRecommendation) + '</p></div>' +
+      (fb.gate ? gateTeacherBlock(fb.gate) : "") +
       '<details class="fb-meta"><summary>Diagnostic detail</summary><p>' + esc(fb.studentSummary) + '</p><p class="fb-teacher"><strong>Teacher view:</strong> ' + esc(fb.teacherSummary) + '</p>' +
         '<p class="metrics">Words: ' + fb.metrics.wordCount + '/' + fb.metrics.minWords + ' · Paragraphs: ' + fb.metrics.paragraphs + ' · Sentences: ' + fb.metrics.sentences + ' · Linkers: ' + fb.metrics.linkers + ' · Avg sentence: ' + fb.metrics.avgSentence + ' words</p></details>' +
     '</article>';
