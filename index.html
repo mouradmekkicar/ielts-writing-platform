@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/training.css">
   <link rel="stylesheet" href="css/masterbook.css">
+  <link rel="stylesheet" href="css/task2-workshop.css">
 </head>
 <body>
 
@@ -366,6 +367,9 @@
       <div class="mission-grid" id="task2Grid"></div>
     </section>
 
+    <!-- TASK 2 WORKSHOP (premium module — rendered by js/task2-workshop.js) -->
+    <section class="view" data-view="task2workshop" id="view-task2workshop"></section>
+
     <!-- WORKSPACE (built dynamically) -->
     <section class="view" data-view="workspace" id="view-workspace">
       <div id="workspaceBody"></div>
@@ -643,6 +647,15 @@
     </figure>
   </div>
 
+  <!-- ===================== TASK PREVIEW (teacher read-only) ===================== -->
+  <div class="modal" id="taskModal" hidden>
+    <div class="modal-backdrop" data-close-taskmodal></div>
+    <div class="task-modal-card" role="dialog" aria-modal="true" aria-labelledby="taskModalTitle">
+      <button class="modal-close" id="taskModalClose" aria-label="Close preview">&times;</button>
+      <div class="task-modal-body" id="taskModalBody"></div>
+    </div>
+  </div>
+
   <!-- ===================== PRINT · A4 BOOKLET (Resource Print Center) ===================== -->
   <div class="print-sheet" id="printBooklet" aria-hidden="true"></div>
 
@@ -838,5 +851,7 @@
   <script src="js/training.js"></script>
   <script src="js/masterbook-data.js"></script>
   <script src="js/masterbook.js"></script>
+  <script src="js/task2-workshop-data.js"></script>
+  <script src="js/task2-workshop.js"></script>
 </body>
 </html>

@@ -1634,7 +1634,7 @@ function buildLocalDiagnostic(text, kind, task, checklist, wordsArg) {
   var _AV = _attemptValidator();
   var _gate = _AV ? _AV.analyzeAttempt(text, (task && task.prompt) || "", minWords, kind) : null;
   var sentences = tokenizeSentences(text);
-  var paras = text.split(/\n\s*\n/).map(function (p) { return p.trim(); }).filter(Boolean);
+  var paras = splitParagraphs(text);
   var lower = " " + text.toLowerCase() + " ";
   var wl = tokenizeWordsLower(text);
 
@@ -1815,6 +1815,29 @@ function buildLocalDiagnostic(text, kind, task, checklist, wordsArg) {
    ASSIGNMENT SERVICE
    ========================================================================== */
 
+/* Assignable self-contained modules — not Library tasks and not tied to a
+   submission. A module assignment carries taskId "module:<view>" and is
+   completed inside its own view; its status is read from the module's own
+   saved progress rather than from a submission record. */
+var ASSIGNABLE_MODULES = [
+  {
+    id: "module:task2workshop", title: "Task 2 Workshop", view: "task2workshop",
+    meta: "Guided 10-stage Task 2 essay workshop",
+    progress: function (user) {
+      return (window.MMWA_T2_WORKSHOP && window.MMWA_T2_WORKSHOP.progressFor)
+        ? window.MMWA_T2_WORKSHOP.progressFor(user) : null;
+    }
+  }
+];
+function moduleById(id) { return ASSIGNABLE_MODULES.filter(function (m) { return m.id === id; })[0] || null; }
+function isModuleAssignment(h) { return !!(h && typeof h.taskId === "string" && h.taskId.indexOf("module:") === 0); }
+function moduleStatus(h, studentId) {
+  var m = moduleById(h.taskId); if (!m) return "Not started";
+  var u = (typeof AuthService !== "undefined" && AuthService.byId(studentId)) || { id: studentId };
+  var p = m.progress(u);
+  return (p && p.status) || "Not started";
+}
+
 const AssignmentService = {
   create: function (data) {
     var rec = Object.assign({ id: uid("hw"), createdAt: nowISO() }, data);
@@ -1834,6 +1857,7 @@ const AssignmentService = {
   },
   forStudent: function (studentId) { return this.all().filter(function (a) { return a.studentId === studentId || a.studentId === "*"; }); },
   statusFor: function (assignment, studentId) {
+    if (isModuleAssignment(assignment)) return moduleStatus(assignment, studentId);
     var sub = SubmissionService.list({ userId: studentId }).find(function (s) { return s.taskId === assignment.taskId && s.mode === assignment.mode; });
     if (!sub) {
       var draft = SubmissionService.getDraft(studentId, assignment.taskId);
@@ -2265,13 +2289,33 @@ function esc(s) {
 }
 function fmtTime(sec) { var m = Math.floor(sec / 60), s = sec % 60; return m + ":" + (s < 10 ? "0" : "") + s; }
 
+/* Paragraph handling — students separate paragraphs either with a blank line
+   (Enter twice) or a single newline (Enter once). Both conventions must be
+   honoured so a four-paragraph essay is never collapsed into one block — both
+   for display (teacher view) and for the scorer's paragraph count. */
+function splitParagraphs(text) {
+  text = String(text == null ? "" : text).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  var parts = /\n[ \t]*\n/.test(text) ? text.split(/\n[ \t]*\n+/) : text.split(/\n+/);
+  return parts.map(function (p) { return p.trim(); }).filter(Boolean);
+}
+function paragraphsToHTML(text) {
+  text = String(text == null ? "" : text).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  var hasBlank = /\n[ \t]*\n/.test(text);
+  var parts = (hasBlank ? text.split(/\n[ \t]*\n+/) : text.split(/\n+/))
+    .map(function (p) { return p.trim(); }).filter(Boolean);
+  if (!parts.length) return "<p></p>";
+  return parts.map(function (p) {
+    return "<p>" + (hasBlank ? esc(p).replace(/\n/g, "<br>") : esc(p)) + "</p>";
+  }).join("");
+}
+
 /* ==========================================================================
    NAVIGATION + ROLE GATING
    ========================================================================== */
 
 var NAV = {
-  student: [["dashboard", "Dashboard"], ["intro", "Introduction"], ["task1", "Task 1"], ["task2", "Task 2"], ["clinic", "Writing Clinic"], ["vocab", "Vocabulary Games"], ["paraphrase", "Task 1 Paraphrasing"], ["library", "Library"], ["reports", "Reports"]],
-  teacher: [["dashboard", "Dashboard"], ["intro", "Introduction"], ["students", "Students"], ["assignments", "Assignments"], ["improvement", "Improvement Lab"], ["submissions", "Submissions"], ["vocab", "Vocabulary Games"], ["paraphrase", "Task 1 Paraphrasing"], ["library", "Library"], ["printcenter", "Print Center"], ["reports", "Reports"]]
+  student: [["dashboard", "Dashboard"], ["intro", "Introduction"], ["task1", "Task 1"], ["task2", "Task 2"], ["task2workshop", "Task 2 Workshop"], ["clinic", "Writing Clinic"], ["vocab", "Vocabulary Games"], ["paraphrase", "Task 1 Paraphrasing"], ["library", "Library"], ["reports", "Reports"]],
+  teacher: [["dashboard", "Dashboard"], ["intro", "Introduction"], ["students", "Students"], ["assignments", "Assignments"], ["improvement", "Improvement Lab"], ["submissions", "Submissions"], ["task2workshop", "Task 2 Workshop"], ["vocab", "Vocabulary Games"], ["paraphrase", "Task 1 Paraphrasing"], ["library", "Library"], ["printcenter", "Print Center"], ["reports", "Reports"]]
 };
 
 function renderNav() {
@@ -2329,6 +2373,7 @@ function showView(name) {
   if (name === "printcenter") PrintCenter.render();
   if (name === "vocab" && window.MMWA_TRAINING) window.MMWA_TRAINING.renderVocab(el("view-vocab"), AuthService.current());
   if (name === "paraphrase" && window.MMWA_TRAINING) window.MMWA_TRAINING.renderParaphrase(el("view-paraphrase"), AuthService.current());
+  if (name === "task2workshop" && window.MMWA_T2_WORKSHOP) window.MMWA_T2_WORKSHOP.render(el("view-task2workshop"), AuthService.current(), AuthService.role());
 }
 
 document.addEventListener("click", function (e) {
@@ -2487,17 +2532,25 @@ function renderStudentDash() {
   var view = el("view-dashboard");
 
   var hwCards = hw.length ? hw.map(function (h) {
-    var task = TaskService.byId(h.taskId);
+    var mod = isModuleAssignment(h) ? moduleById(h.taskId) : null;
+    var task = mod ? null : TaskService.byId(h.taskId);
     var st = AssignmentService.statusFor(h, user.id);
     var stClass = st.toLowerCase().replace(/\s/g, "-");
-    var overdue = h.deadline && new Date(h.deadline) < new Date() && st !== "Reviewed" && st !== "Submitted";
+    var done = st === "Reviewed" || st === "Submitted" || st === "Completed";
+    var overdue = h.deadline && new Date(h.deadline) < new Date() && !done;
+    var title = mod ? mod.title : (task ? task.title : "Task");
+    var meta = mod ? mod.meta : (task ? "Task " + (task.kind === "task1" ? "1" : "2") + " · " + task.type : "");
+    var topBadge = mod ? '<span class="mode-badge mode-module">Module</span>' : modeBadge(h.mode);
+    var btn = mod
+      ? '<button class="btn btn-gold btn-sm" data-nav="' + mod.view + '">' + (st === "Not started" ? "Start" : (st === "Completed" ? "Review" : "Continue")) + '</button>'
+      : '<button class="btn btn-gold btn-sm" data-start-task="' + h.taskId + '" data-mode="' + h.mode + '" data-hw="' + h.id + '">' + (st === "Not started" ? "Start" : "Continue") + '</button>';
     return '<article class="hw-card">' +
-      '<div class="hw-top">' + modeBadge(h.mode) + '<span class="hw-status hw-' + stClass + '">' + st + '</span></div>' +
-      '<h4>' + esc(task ? task.title : "Task") + '</h4>' +
-      '<p class="hw-meta">' + esc(task ? "Task " + (task.kind === "task1" ? "1" : "2") + " · " + task.type : "") + (h.difficulty ? " · " + esc(h.difficulty) : "") + '</p>' +
+      '<div class="hw-top">' + topBadge + '<span class="hw-status hw-' + stClass + '">' + st + '</span></div>' +
+      '<h4>' + esc(title) + '</h4>' +
+      '<p class="hw-meta">' + esc(meta) + (h.difficulty && !mod ? " · " + esc(h.difficulty) : "") + '</p>' +
       (h.instructions ? '<p class="hw-instr">' + esc(h.instructions) + '</p>' : "") +
       '<p class="hw-deadline' + (overdue ? " is-overdue" : "") + '">Due: ' + (h.deadline ? fmtDate(h.deadline) : "no deadline") + (overdue ? " · overdue" : "") + '</p>' +
-      '<button class="btn btn-gold btn-sm" data-start-task="' + h.taskId + '" data-mode="' + h.mode + '" data-hw="' + h.id + '">' + (st === "Not started" ? "Start" : "Continue") + '</button>' +
+      btn +
       '</article>';
   }).join("") : '<p class="empty-note">No homework assigned yet. Browse the <button class="linkbtn" data-nav="library">Practice Library</button> to start anytime.</p>';
 
@@ -2598,6 +2651,7 @@ function taskCardHTML(t, userId) {
       '<h3 class="mission-title">' + esc(t.title) + '</h3>' +
       '<p class="mission-desc">' + esc(t.desc) + '</p>' +
       '<div class="mission-foot">' +
+        (AuthService.role() === "teacher" ? '<button class="btn btn-ghost btn-sm" data-view-task="' + t.id + '">View</button>' : "") +
         '<button class="btn btn-gold btn-sm" data-start-task="' + t.id + '" data-mode="practice">Practice</button>' +
         '<button class="btn btn-navy btn-sm" data-start-task="' + t.id + '" data-mode="exam"' + (tokOk ? "" : " disabled title=\"No exam tokens left\"") + '>' + (tokOk ? "Exam mode" : "Locked") + '</button>' +
       '</div>' +
@@ -3504,14 +3558,22 @@ function renderAsgTaskList() {
     return !q || (t.title + " " + t.type + " " + t.kind).toLowerCase().indexOf(q) > -1;
   });
   var groups = [["task1", "Task 1"], ["task2", "Task 2"]];
-  el("asgTaskList").innerHTML = groups.map(function (g) {
+  var html = groups.map(function (g) {
     var items = tasks.filter(function (t) { return t.kind === g[0]; });
     if (!items.length) return "";
     return '<div class="check-group"><p class="check-group-h">' + g[1] + '</p>' + items.map(function (t) {
       return '<label class="check-item"><input type="checkbox" class="asg-task-cb" value="' + t.id + '">' +
         '<span><strong>' + esc(t.type) + '</strong> — ' + esc(t.title) + ' <em class="check-diff">' + esc(t.difficulty) + '</em></span></label>';
     }).join("") + '</div>';
-  }).join("") || '<p class="empty-note">No tasks match your search.</p>';
+  }).join("");
+  var mods = ASSIGNABLE_MODULES.filter(function (m) { return !q || (m.title + " " + m.meta).toLowerCase().indexOf(q) > -1; });
+  if (mods.length) {
+    html += '<div class="check-group"><p class="check-group-h">Modules</p>' + mods.map(function (m) {
+      return '<label class="check-item"><input type="checkbox" class="asg-task-cb" value="' + m.id + '">' +
+        '<span><strong>' + esc(m.title) + '</strong> — ' + esc(m.meta) + ' <em class="check-diff">Module</em></span></label>';
+    }).join("") + '</div>';
+  }
+  el("asgTaskList").innerHTML = html || '<p class="empty-note">No tasks match your search.</p>';
   updateAsgCount();
 }
 function updateAsgCount() {
@@ -3525,9 +3587,12 @@ function renderAssignments() {
 
   var list = AssignmentService.all();
   el("asgList").innerHTML = list.length ? list.map(function (h) {
-    var task = TaskService.byId(h.taskId);
+    var mod = isModuleAssignment(h) ? moduleById(h.taskId) : null;
+    var task = mod ? null : TaskService.byId(h.taskId);
     var who = h.studentId === "*" ? "All students" : ((AuthService.byId(h.studentId) || {}).name || "—");
-    return '<tr><td>' + esc(who) + '</td><td>' + esc(task ? task.title : "—") + '</td><td>' + modeBadge(h.mode) + '</td><td>' + esc(h.difficulty || "—") + '</td><td>' + (h.deadline ? fmtDate(h.deadline) : "—") + '</td><td>' + (h.unlockCode ? esc(h.unlockCode) : "—") + '</td><td><button class="btn btn-ghost btn-sm" data-del-asg="' + h.id + '">Remove</button></td></tr>';
+    var title = mod ? mod.title : (task ? task.title : "—");
+    var modeCell = mod ? '<span class="mode-badge mode-module">Module</span>' : modeBadge(h.mode);
+    return '<tr><td>' + esc(who) + '</td><td>' + esc(title) + '</td><td>' + modeCell + '</td><td>' + esc(mod ? "—" : (h.difficulty || "—")) + '</td><td>' + (h.deadline ? fmtDate(h.deadline) : "—") + '</td><td>' + (h.unlockCode ? esc(h.unlockCode) : "—") + '</td><td><button class="btn btn-ghost btn-sm" data-del-asg="' + h.id + '">Remove</button></td></tr>';
   }).join("") : '<tr><td colspan="7" class="empty-cell">No assignments yet.</td></tr>';
 
   if (el("asgSearch") && !el("asgSearch").dataset.bound) {
@@ -3608,7 +3673,7 @@ function openSubmissionDetail(subId) {
     '<div class="ws-grid">' +
       '<div class="ws-col-main">' +
         '<article class="panel paper-panel"><h3 class="panel-label">Prompt</h3><p class="ws-prompt">' + esc(task.prompt) + '</p></article>' +
-        '<article class="panel paper-panel"><h3 class="panel-label">Student answer</h3><div class="answer-text">' + s.text.split(/\n\s*\n/).map(function (p) { return "<p>" + esc(p) + "</p>"; }).join("") + '</div></article>' +
+        '<article class="panel paper-panel"><h3 class="panel-label">Student answer</h3><div class="answer-text">' + paragraphsToHTML(s.text) + '</div></article>' +
         '<article class="panel paper-panel"><h3 class="panel-label">Checklist</h3><ul class="pr-checklist">' + checklistHTMLs + '</ul></article>' +
         '<div id="detailFeedback"></div>' +
       '</div>' +
@@ -3843,6 +3908,59 @@ function openModal(src, alt) {
 }
 function closeModal() { if (modal.hidden) return; modal.hidden = true; if (lastFocused && lastFocused.focus) lastFocused.focus(); }
 
+/* ---- Teacher task preview (read-only) — lets a teacher open and read any
+   Library item in full: prompt, image, teaching scaffold and model answer,
+   without entering the student writing workspace. ---- */
+function tmList(label, arr) {
+  if (!arr || !arr.length) return "";
+  return '<div class="tm-block"><h4>' + esc(label) + '</h4><ul>' +
+    arr.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + '</ul></div>';
+}
+function tmText(label, str) {
+  if (!str) return "";
+  return '<div class="tm-block"><h4>' + esc(label) + '</h4><p>' + esc(str) + '</p></div>';
+}
+function taskPreviewHTML(t) {
+  var isT1 = (t.kind || t.task) === "task1";
+  var tags = [t.type, t.difficulty, "Target " + (BAND_TARGET[t.difficulty] || "6.0"), t.time]
+    .filter(Boolean).map(function (x) { return '<span class="tm-tag">' + esc(x) + '</span>'; }).join("");
+  var html =
+    '<p class="tm-eyebrow">Task ' + (isT1 ? "1" : "2") + ' \u00b7 Library preview</p>' +
+    '<h2 class="tm-title" id="taskModalTitle">' + esc(t.title) + '</h2>' +
+    '<div class="tm-tags">' + tags + '</div>';
+  if (t.img) html += '<img class="tm-img" src="' + esc(t.img) + '" alt="' + esc(t.alt || "") + '">';
+  if (t.desc) html += '<div class="tm-block"><p><em>' + esc(t.desc) + '</em></p></div>';
+  html += '<div class="tm-block"><h4>Prompt</h4><div class="tm-prompt"><p>' + esc(t.prompt) + '</p></div></div>';
+  /* teaching scaffold — render whichever keys exist (Task 1 and Task 2 shapes differ) */
+  html += tmText("Teaching note", t.learn);
+  html += tmList("What to notice", t.analyse);
+  html += tmList("Suggested plan", t.plan || t.structure);
+  html += tmText("Thesis guidance", t.thesis);
+  html += tmList("Common mistakes", t.mistakes);
+  html += tmList("Useful language", t.vocab || t.language);
+  html += tmText("Examiner tip", t.tip);
+  if (t.model && t.model.length) {
+    html += '<div class="tm-block"><h4>Model answer (Band 9)</h4><div class="tm-model">' +
+      t.model.map(function (p) { return "<p>" + esc(p) + "</p>"; }).join("") + '</div></div>';
+  }
+  return html;
+}
+var taskModal, taskModalLastFocus = null;
+function openTaskPreview(taskId) {
+  var t = TaskService.byId(taskId);
+  if (!t || !taskModal) return;
+  taskModalLastFocus = document.activeElement;
+  el("taskModalBody").innerHTML = taskPreviewHTML(t);
+  var card = taskModal.querySelector(".task-modal-card"); if (card) card.scrollTop = 0;
+  taskModal.hidden = false;
+  el("taskModalClose").focus();
+}
+function closeTaskModal() {
+  if (!taskModal || taskModal.hidden) return;
+  taskModal.hidden = true;
+  if (taskModalLastFocus && taskModalLastFocus.focus) taskModalLastFocus.focus();
+}
+
 /* ==========================================================================
    BOOT
    ========================================================================== */
@@ -3898,6 +4016,15 @@ modal = el("imgModal");
 on(el("modalClose"), "click", closeModal);
 document.addEventListener("click", function (e) { if (e.target.closest("[data-close-modal]")) closeModal(); });
 document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeModal(); });
+
+taskModal = el("taskModal");
+on(el("taskModalClose"), "click", closeTaskModal);
+document.addEventListener("click", function (e) {
+  if (e.target.closest("[data-close-taskmodal]")) { closeTaskModal(); return; }
+  var v = e.target.closest("[data-view-task]");
+  if (v && AuthService.role() === "teacher") openTaskPreview(v.dataset.viewTask);
+});
+document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeTaskModal(); });
 
 if (authMode() === "supabase") {
   // show the sign-in screen immediately; AuthService.init() reboots the app
@@ -4102,6 +4229,47 @@ var PrintCenter = (function () {
             if (o.teacherNotes && c.tip) h += '<p class="bk-tip">' + esc(c.tip) + "</p>";
             if (c.practice) { h += '<p class="bk-task"><b>Your turn:</b> ' + esc(c.practice) + "</p>"; if (o.practiceBoxes) h += '<div class="bk-lines"><span class="bk-line"></span><span class="bk-line"></span></div>'; }
             if (o.answerKeys && c.suggested) h += bkAnswer("Suggested answer", "<p>" + esc(c.suggested) + "</p>");
+            return h + "</div>";
+          }).join("");
+        }
+      });
+    }
+
+    // Task 2 Workshop — model essay pack + sentence-upgrade bank (deep
+    // Print Center integration: the workshop's printable content joins the
+    // unified booklet, with cover, contents, name fields and PDF export).
+    var T2W = (typeof window !== "undefined" && window.IWM_T2W_DATA) || null;
+    if (T2W && arr(T2W.ESSAYS).length) {
+      R.push({
+        id: "t2w-models", title: "Task 2 Workshop — Model Essay Pack", category: "Task 2 Workshop", type: "Band 9 Model Essays", level: "Band 9",
+        includes: { worksheet: true, answerKey: false, modelAnswer: true, teacherNotes: true, chart: false, vocab: false },
+        pages: Math.max(3, arr(T2W.ESSAYS).length),
+        render: function (o) {
+          return arr(T2W.ESSAYS).map(function (es, i) {
+            var b9 = (es.b9 && es.b9.paras) || [];
+            var b5 = (es.b5 && es.b5.paras) || [];
+            var h = '<div class="bk-qitem avoid-break"><p class="bk-qnum">' + (i + 1) + ". " + esc(es.type || "Essay") + "</p>";
+            h += '<p class="bk-prompt">' + esc(es.prompt || "") + "</p>";
+            if (o.practiceBoxes) h += bkPractice("Your essay", 250);
+            h += bkModel("Band 9 model", b9);
+            if (o.teacherNotes && b5.length) h += bkNote("Band 5 contrast (for discussion)", b5.map(function (p) { return "<p>" + esc(p) + "</p>"; }).join(""));
+            return h + "</div>";
+          }).join("");
+        }
+      });
+    }
+    if (T2W && arr(T2W.UPGRADES).length) {
+      R.push({
+        id: "t2w-upgrades", title: "Task 2 Workshop — Sentence Upgrade Bank", category: "Task 2 Workshop", type: "Band 5 \u2192 Band 9", level: "All bands",
+        includes: { worksheet: true, answerKey: true, modelAnswer: true, teacherNotes: true, chart: false, vocab: false },
+        pages: Math.max(2, Math.ceil(arr(T2W.UPGRADES).length / 4)),
+        render: function (o) {
+          return arr(T2W.UPGRADES).map(function (u, i) {
+            var h = '<div class="bk-qitem avoid-break"><p class="bk-qnum">' + (i + 1) + ".</p>";
+            h += '<p class="bk-weak"><span class="bk-tag bk-tag-bad">Band 5</span> ' + esc(u.b5 || "") + "</p>";
+            if (o.practiceBoxes) h += '<div class="bk-lines"><span class="bk-line"></span><span class="bk-line"></span></div>';
+            if (o.modelAnswers) h += '<p class="bk-better"><span class="bk-tag bk-tag-good">Band 9</span> ' + esc(u.b9 || "") + "</p>";
+            if (o.teacherNotes && arr(u.points).length) h += bkList("Why it works", u.points);
             return h + "</div>";
           }).join("");
         }
